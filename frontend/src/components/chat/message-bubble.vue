@@ -304,7 +304,13 @@ function escapeHtml(s: string): string {
 function highlightText(raw: string): string {
   if (!raw) return '';
   let s = escapeHtml(raw);
-  s = s.replace(/@([\p{L}][\p{L}0-9._-]+(?:\s[\p{L}][\p{L}0-9._-]+){0,2})/gu, '<span class="mention">@$1</span>');
+  // Mention regex: match @ + 1-2 words capitalized only (tên người VN phổ biến).
+  // Trước đây {0,2} → 3 words max → bôi lố từ thường vào tên (vd "@Đại Khánh thể").
+  // {0,1} → max 2 words. Word phải BẮT ĐẦU BẰNG CHỮ HOA để loại từ thường tiếng Việt.
+  s = s.replace(
+    /@(\p{Lu}[\p{L}0-9._-]*(?:\s\p{Lu}[\p{L}0-9._-]*){0,1})/gu,
+    '<span class="mention">@$1</span>',
+  );
   s = s.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener" class="link">$1</a>');
   s = s.replace(/\r?\n/g, '<br>');
   return s;

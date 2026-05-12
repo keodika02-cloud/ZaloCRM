@@ -892,10 +892,14 @@ watch(() => props.messages.length, async () => {
   scrollToBottom();
 });
 
-// Khi đổi sang conv khác → reset scroll xuống đáy ngay khi messages load
-watch(() => props.conversation?.id, async () => {
+// Khi đổi sang conv khác → reset scroll xuống đáy ngay + retry sau khi messages
+// load xong (messages.length thay đổi async sau khi parent fetch).
+watch(() => props.conversation?.id, async (newId) => {
+  if (!newId) return;
   await nextTick();
   scrollToBottom();
+  // Retry sau khi messages async load — scrollToBottom đã có retry 100/400/1000ms
+  // nhưng nếu messages chưa thay đổi sau lần đầu thì watch messages.length sẽ trigger tiếp.
 });
 </script>
 
@@ -931,12 +935,13 @@ watch(() => props.conversation?.id, async () => {
 /* Row 1: Name | Gender icon | Care status */
 .ch-row-1 {
   display: flex; align-items: center; gap: 8px;
-  flex-wrap: wrap;
+  min-width: 0; /* cho phép children shrink — ch-name ellipsis hoạt động */
+  flex-wrap: nowrap; overflow: hidden;
 }
 .ch-name {
   font-weight: 600; font-size: 16px;
   color: var(--smax-text);
-  max-width: 280px;
+  min-width: 0; flex-shrink: 1; max-width: 320px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .ch-sep {

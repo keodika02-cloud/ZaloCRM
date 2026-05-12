@@ -24,6 +24,8 @@ export interface Contact {
   zaloGlobalId?: string | null;
   zaloUsername?: string | null;
   _count?: { conversations?: number; appointments?: number };
+  // Aggregate Friend rows theo relationshipKind: friend / pending_friend / chatting_stranger / ghost
+  nicksByKind?: Record<string, number>;
   nextAppointment: string | null;
   notes: string | null;
   tags: string[];

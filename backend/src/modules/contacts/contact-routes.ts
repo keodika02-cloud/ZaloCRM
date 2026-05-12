@@ -60,7 +60,26 @@ export async function contactRoutes(app: FastifyInstance): Promise<void> {
         prisma.contact.count({ where }),
       ]);
 
-      return { contacts, total, page: pageNum, limit: limitNum };
+      // Aggregate Friend rows theo relationshipKind cho từng contact trong page.
+      // Hiển thị 4 chip nick chăm (friend / pending_friend / chatting_stranger / ghost).
+      const contactIds = contacts.map((c) => c.id);
+      const friendCounts = contactIds.length === 0 ? [] : await prisma.friend.groupBy({
+        by: ['contactId', 'relationshipKind'],
+        where: { contactId: { in: contactIds } },
+        _count: { _all: true },
+      });
+      const nicksByKindMap = new Map<string, Record<string, number>>();
+      for (const row of friendCounts) {
+        const map = nicksByKindMap.get(row.contactId) || {};
+        map[row.relationshipKind] = row._count._all;
+        nicksByKindMap.set(row.contactId, map);
+      }
+      const contactsWithNicks = contacts.map((c) => ({
+        ...c,
+        nicksByKind: nicksByKindMap.get(c.id) || {},
+      }));
+
+      return { contacts: contactsWithNicks, total, page: pageNum, limit: limitNum };
     } catch (err) {
       logger.error('[contacts] List error:', err);
       return reply.status(500).send({ error: 'Failed to fetch contacts' });

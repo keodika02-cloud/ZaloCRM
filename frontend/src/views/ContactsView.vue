@@ -283,11 +283,6 @@
                           </div>
                         </td>
                       </tr>
-                      <tr v-if="hiddenChildCount(contact) > 0" class="more-row">
-                        <td colspan="13">
-                          + {{ hiddenChildCount(contact) }} nick khác đã KB (collapsed)
-                        </td>
-                      </tr>
                     </tbody>
                   </table>
                   <div v-else class="child-empty">
@@ -372,20 +367,21 @@ function changePage(p: number) {
 function toggleExpand(id: string) {
   expandedId.value = expandedId.value === id ? null : id;
   if (expandedId.value === id && !friendshipCache.value[id]) {
-    void fetchFriendships(id);
+    const contact = contacts.value.find(c => c.id === id);
+    if (contact) void fetchFriendships(contact);
   }
 }
 
-async function fetchFriendships(contactId: string) {
-  friendshipLoading.value[contactId] = true;
+async function fetchFriendships(contact: Contact) {
+  friendshipLoading.value[contact.id] = true;
   try {
-    const res = await api.get<{ friendships: ApiFriendship[] }>(`/contacts/${contactId}/friendships`);
-    friendshipCache.value[contactId] = (res.data.friendships || []).map(mapFriendshipToChildRow);
+    const res = await api.get<{ friendships: ApiFriendship[] }>(`/contacts/${contact.id}/friendships`);
+    friendshipCache.value[contact.id] = (res.data.friendships || []).map(f => mapFriendshipToChildRow(f, contact));
   } catch (err) {
     console.error('[friendships] fetch error:', err);
-    friendshipCache.value[contactId] = [];
+    friendshipCache.value[contact.id] = [];
   } finally {
-    friendshipLoading.value[contactId] = false;
+    friendshipLoading.value[contact.id] = false;
   }
 }
 
@@ -394,11 +390,14 @@ interface ApiFriendship {
   zaloUidInNick: string;
   relationshipKind: string;
   friendshipStatus: string;
+  hasConversation: boolean;
   aliasInNick: string | null;
   zaloLabels: unknown;
   becameFriendAt: string | null;
   lastInboundAt: string | null;
   lastOutboundAt: string | null;
+  totalInbound: number;
+  totalOutbound: number;
   zaloAccount: {
     id: string;
     displayName: string | null;
@@ -409,7 +408,21 @@ interface ApiFriendship {
   };
 }
 
-function mapFriendshipToChildRow(f: ApiFriendship): ChildRow {
+function relativeTime(iso: string | null): string | null {
+  if (!iso) return null;
+  const ts = new Date(iso).getTime();
+  if (!Number.isFinite(ts)) return null;
+  const diff = Date.now() - ts;
+  const days = Math.floor(diff / 86_400_000);
+  if (days <= 0) return 'hôm nay';
+  if (days === 1) return 'hôm qua';
+  if (days < 30) return `${days}d trước`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months}th trước`;
+  return `${Math.floor(months / 12)}y trước`;
+}
+
+function mapFriendshipToChildRow(f: ApiFriendship, contact: Contact): ChildRow {
   const validKinds: ChildRow['relationshipKind'][] = ['friend', 'pending_friend', 'chatting_stranger', 'ghost'];
   const kind = (validKinds.includes(f.relationshipKind as ChildRow['relationshipKind'])
     ? f.relationshipKind
@@ -419,22 +432,21 @@ function mapFriendshipToChildRow(f: ApiFriendship): ChildRow {
     : [];
   return {
     id: f.id,
-    nickShort: '',
     nickName: f.zaloAccount.displayName || 'Nick',
     salePhone: f.zaloAccount.phone || '',
     saleName: f.zaloAccount.owner?.fullName || '—',
     aliasInNick: f.aliasInNick,
-    zaloName: null,
+    zaloName: contact.fullName,
     zaloUid: f.zaloUidInNick,
     relationshipKind: kind,
-    careStatus: 'interested' as CareStatusValue,
-    crmTagsPerNick: [],
+    careStatus: (contact.status as CareStatusValue) || 'interested',
+    crmTagsPerNick: contact.tags?.slice(0, 3) || [],
     zaloLabels: labels,
     lastInboundAt: f.lastInboundAt,
     lastOutboundAt: f.lastOutboundAt,
-    totalInbound: 0,
-    totalOutbound: 0,
-    becameFriendAt: f.becameFriendAt,
+    totalInbound: f.totalInbound ?? 0,
+    totalOutbound: f.totalOutbound ?? 0,
+    becameFriendAt: relativeTime(f.becameFriendAt),
     autoLabel: null,
   };
 }
@@ -475,7 +487,7 @@ function ageOf(c: Contact): number | null {
 
 const stats = computed(() => ({
   withNick: contacts.value.filter(c => c.hasZalo === true).length,
-  multiClaim: 0, // chờ backend bổ sung trường multi_nick_count
+  multiClaim: contacts.value.filter(c => (c._count?.conversations || 0) >= 3).length,
   revoked: contacts.value.filter(c => c.consentStatus === 'revoked').length,
   noZalo: contacts.value.filter(c => c.hasZalo === false).length,
 }));
@@ -496,7 +508,6 @@ function onAutomation(_c: Contact) { toast.warning('Automation dialog: chưa imp
 // ════════ Child rows (MOCK — chờ /contacts/:id/friendships) ════════
 interface ChildRow {
   id: string;
-  nickShort: string;
   nickName: string;
   salePhone: string;
   saleName: string;
@@ -520,10 +531,6 @@ function childRows(contact: Contact): ChildRow[] {
   return friendshipCache.value[contact.id] || [];
 }
 
-function hiddenChildCount(_contact: Contact): number {
-  // MOCK: số nick đã KB nhưng không hiển thị (collapsed)
-  return 0;
-}
 
 function kindLabel(kind: ChildRow['relationshipKind']): string {
   const map: Record<ChildRow['relationshipKind'], string> = {
@@ -555,13 +562,13 @@ function onChildAction(action: string, row: ChildRow) {
 // ════════ Master row "Nick chăm" — 4 chip count ════════
 interface NickCountChip { kind: string; icon: string; count: number; cls: string; title: string }
 function nickCountChips(contact: Contact): NickCountChip[] {
-  // MOCK aggregate — chờ field nick_count_by_kind backend
-  const total = contact.hasZalo === true ? 1 : 0;
+  // Backend aggregate Friend.relationshipKind per contact (set trong GET /contacts).
+  const m = contact.nicksByKind || {};
   return [
-    { kind: 'friend', icon: '🟢', count: total, cls: 'chip-success', title: 'Đã KB' },
-    { kind: 'pending', icon: '🟡', count: 0, cls: 'chip-warning', title: 'Đã gửi mời' },
-    { kind: 'stranger', icon: '🔵', count: 0, cls: 'chip-info', title: 'Đang nhắn lạ' },
-    { kind: 'ghost', icon: '⚪', count: 0, cls: 'chip-grey', title: 'Đã ngắt' },
+    { kind: 'friend', icon: '🟢', count: m.friend || 0, cls: 'chip-success', title: 'Đã KB' },
+    { kind: 'pending', icon: '🟡', count: m.pending_friend || 0, cls: 'chip-warning', title: 'Đã gửi mời' },
+    { kind: 'stranger', icon: '🔵', count: m.chatting_stranger || 0, cls: 'chip-info', title: 'Đang nhắn lạ' },
+    { kind: 'ghost', icon: '⚪', count: m.ghost || 0, cls: 'chip-grey', title: 'Đã ngắt' },
   ];
 }
 function onSaved() { fetchContacts(); }

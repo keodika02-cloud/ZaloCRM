@@ -1,7 +1,7 @@
 <template>
   <MobileChatView v-if="isMobile" />
   <div v-else class="smax-chat-grid">
-    <!-- COL 1: filter rail -->
+    <!-- COL 1: filter rail (collapse state observed via localStorage trong FilterRail) -->
     <FilterRail
       :accounts="accountList"
       :selected-account-ids="selectedAccountIds"
@@ -117,7 +117,11 @@ const {
 const { accounts: zaloAccounts, fetchAccounts: fetchZaloAccounts } = useZaloAccounts();
 const selectedAccountIds = ref<string[]>([]);
 const accountList = computed(() =>
-  (zaloAccounts.value || []).map(a => ({ id: a.id, displayName: a.displayName })),
+  (zaloAccounts.value || []).map(a => ({
+    id: a.id,
+    displayName: a.displayName,
+    ownerUserId: a.ownerUserId,
+  })),
 );
 const threadCounts = computed(() => {
   const groups = conversations.value.filter(c => c.threadType === 'group').length;
@@ -267,17 +271,10 @@ watch(searchQuery, () => {
 </script>
 
 <style scoped>
-/* ════════ Responsive chat layout — adaptive 4 tier ════════
-   PATTERN: contained scroll (như ContactsView). Page chiếm 100vh - topnav.
-   Mỗi col overflow: hidden + internal scroll. Cols co/giãn theo viewport tier.
-
-   Tier widths (filterRail / convList / thread / infoPanel):
-     ≥1700px : 290 / 380 / 1fr / 350   (default — FHD+/2K thoải mái)
-     1440-1700 : 260 / 340 / 1fr / 310  (HD+ compact)
-     1200-1440 : 240 / 320 / 1fr / 280  (tight — vừa đủ thread)
-     1024-1200 : 0   / 320 / 1fr / 280  (drop filterRail)
-     768-1024  : 0   / 320 / 1fr / 0    (drop filter + info panel)
-     <768      : MobileChatView (v-if isMobile route khác hẳn) */
+/* ════════ Responsive chat layout — adaptive 4 tier + filter collapse ════════
+   Filter rail có 2 mode: expanded (default tier width) hoặc collapsed (56px).
+   Collapse state qua :has(.filter-rail.collapsed) — auto sync khi FilterRail
+   toggle localStorage. Grid template column 1 thay đổi theo. */
 .smax-chat-grid {
   display: grid;
   grid-template-columns: 290px 380px 1fr 350px;
@@ -290,6 +287,13 @@ watch(searchQuery, () => {
 .smax-chat-grid:has(.smax-info-col:not(:empty)) { /* presence query placeholder */ }
 .smax-chat-grid:not(:has(.smax-info-col)) {
   grid-template-columns: 290px 380px 1fr;
+}
+/* Khi filter rail collapsed → col 1 = 56px */
+.smax-chat-grid:has(.filter-rail.collapsed) {
+  grid-template-columns: 56px 380px 1fr 350px;
+}
+.smax-chat-grid:has(.filter-rail.collapsed):not(:has(.smax-info-col)) {
+  grid-template-columns: 56px 380px 1fr;
 }
 
 .smax-conv-col,
@@ -315,12 +319,24 @@ watch(searchQuery, () => {
   .smax-chat-grid:not(:has(.smax-info-col)) {
     grid-template-columns: 260px 340px 1fr;
   }
+  .smax-chat-grid:has(.filter-rail.collapsed) {
+    grid-template-columns: 56px 340px 1fr 310px;
+  }
+  .smax-chat-grid:has(.filter-rail.collapsed):not(:has(.smax-info-col)) {
+    grid-template-columns: 56px 340px 1fr;
+  }
 }
 /* Tight: filter rail vẫn show nhưng compact */
 @media (max-width: 1440px) {
   .smax-chat-grid { grid-template-columns: 240px 320px 1fr 280px; }
   .smax-chat-grid:not(:has(.smax-info-col)) {
     grid-template-columns: 240px 320px 1fr;
+  }
+  .smax-chat-grid:has(.filter-rail.collapsed) {
+    grid-template-columns: 56px 320px 1fr 280px;
+  }
+  .smax-chat-grid:has(.filter-rail.collapsed):not(:has(.smax-info-col)) {
+    grid-template-columns: 56px 320px 1fr;
   }
 }
 /* < 1200: drop filter rail */

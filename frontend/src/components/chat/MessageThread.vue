@@ -116,10 +116,24 @@
             <template #activator="{ props: act }">
               <button class="icon-btn" v-bind="act" title="Thêm">⋮</button>
             </template>
-            <v-list density="compact" min-width="180">
+            <v-list density="compact" min-width="220">
               <v-list-item prepend-icon="mdi-history" title="Lịch sử hội thoại" @click="toast.push('Lịch sử: chưa implement')" />
               <v-list-item prepend-icon="mdi-magnify" title="Tìm trong hội thoại" @click="toast.push('Tìm: chưa implement')" />
               <v-list-item prepend-icon="mdi-note-edit-outline" title="Ghi chú nhanh" @click="onOpenNote" />
+              <v-divider />
+              <!-- Parent-Child link/unlink -->
+              <v-list-item
+                v-if="conversation.contact && !conversation.contact.parentContactId"
+                prepend-icon="mdi-link-variant-plus"
+                title="🔗 Gắn vào KH Cha"
+                @click="showLinkParentDialog = true"
+              />
+              <v-list-item
+                v-if="conversation.contact?.parentContactId"
+                prepend-icon="mdi-link-variant-off"
+                title="✂ Tách khỏi KH Cha"
+                @click="onUnlinkParent"
+              />
               <v-divider />
               <v-list-item prepend-icon="mdi-bell-off-outline" title="Tắt thông báo" @click="toast.push('Mute: chưa implement')" />
               <v-list-item prepend-icon="mdi-flag-outline" title="Báo cáo" @click="toast.push('Report: chưa implement')" />
@@ -340,6 +354,14 @@
       :uid="userInfoUid"
       :zalo-account-id="conversation?.zaloAccount?.id || ''"
     />
+
+    <!-- Link parent dialog -->
+    <LinkParentDialog
+      v-if="conversation?.contact"
+      v-model="showLinkParentDialog"
+      :child-contact-id="conversation.contact.id"
+      @linked="onLinkedParent"
+    />
   </div>
 </template>
 
@@ -355,6 +377,7 @@ import QuickTemplatePopup from '@/components/chat/quick-template-popup.vue';
 import MessageBubble from '@/components/chat/message-bubble.vue';
 import StickerPicker from '@/components/chat/StickerPicker.vue';
 import ZaloUserInfoDialog from '@/components/chat/ZaloUserInfoDialog.vue';
+import LinkParentDialog from '@/components/chat/LinkParentDialog.vue';
 import MessageContextMenu from '@/components/chat/message-context-menu.vue';
 import TypingIndicator from '@/components/chat/typing-indicator.vue';
 import ReplyPreviewBar from '@/components/chat/reply-preview-bar.vue';
@@ -410,6 +433,25 @@ const showContextMenu = ref(false);
 const contextMsg = ref<Message | null>(null);
 const contextPos = ref({ x: 0, y: 0 });
 const showForwardDialog = ref(false);
+const showLinkParentDialog = ref(false);
+
+async function onLinkedParent() {
+  toast.success('Đã gắn vào KH Cha');
+  emit('refresh-thread');
+}
+
+async function onUnlinkParent() {
+  const contactId = props.conversation?.contact?.id;
+  if (!contactId) return;
+  try {
+    await api.post(`/contacts/${contactId}/unlink-parent`);
+    toast.success('Đã tách thành KH Cha riêng');
+    emit('refresh-thread');
+  } catch (err) {
+    const msg = (err as { response?: { data?: { error?: string } } }).response?.data?.error || 'Tách thất bại';
+    toast.error(msg);
+  }
+}
 const editorRef = ref<InstanceType<typeof RichTextEditor> | null>(null);
 const currentTypers = computed(() => props.typingUsers || []);
 

@@ -43,6 +43,34 @@
               :model-value="(conversation.contact.status as string | null) || 'new'"
               @update:model-value="onCareStatusChange"
             />
+            <!-- Zalo Real labels dropdown — chỉ user thread + có friend record -->
+            <v-menu v-if="conversation.threadType === 'user' && conversation.friendship" :close-on-content-click="false" location="bottom start">
+              <template #activator="{ props: actProps }">
+                <button v-bind="actProps" class="zlbl-trigger" :title="`${zaloLabels.length} thẻ Zalo Real`">
+                  <span class="zlbl-icon">🏷</span>
+                  <span v-if="zaloLabels.length" class="zlbl-count">{{ zaloLabels.length }}</span>
+                  <span v-else class="zlbl-empty">Zalo</span>
+                  <span class="zlbl-caret">▾</span>
+                </button>
+              </template>
+              <div class="zlbl-dropdown">
+                <div class="zlbl-head">Thẻ Zalo Real</div>
+                <div v-if="!zaloLabels.length" class="zlbl-empty-state">
+                  Chưa có thẻ Zalo nào. Sync từ Zalo client để cập nhật.
+                </div>
+                <div v-else class="zlbl-list">
+                  <span
+                    v-for="(label, idx) in zaloLabels"
+                    :key="label.id || idx"
+                    class="zlbl-chip"
+                    :style="label.color ? `background:${label.color}22;color:${label.color};border-color:${label.color}` : ''"
+                  >
+                    {{ label.name || '—' }}
+                  </span>
+                </div>
+                <div class="zlbl-foot">Quản lý trong app Zalo</div>
+              </div>
+            </v-menu>
           </div>
 
           <!-- Row 2: nick avatar + nick name | in/out | last online -->
@@ -222,6 +250,14 @@
 
       <!-- ════════ Input area: toolbar trên textarea (Smax-style) ════════ -->
       <div class="input-area">
+        <!-- CRM tag pills (Smax-style) — chỉ KH chat 1-1, ẩn ở group -->
+        <TagCrmBar
+          v-if="conversation.contact && conversation.threadType === 'user'"
+          :contact-id="conversation.contact.id"
+          :model-value="contactTags"
+          @update:model-value="onUpdateTags"
+        />
+
         <ReplyPreviewBar
           :message="(replyingTo || editingMessage) ?? null"
           :mode="editingMessage ? 'edit' : 'reply'"
@@ -381,6 +417,7 @@ import TypingIndicator from '@/components/chat/typing-indicator.vue';
 import ReplyPreviewBar from '@/components/chat/reply-preview-bar.vue';
 import ForwardDialog from '@/components/chat/forward-dialog.vue';
 import RichTextEditor from '@/components/chat/rich-text-editor.vue';
+import TagCrmBar from '@/components/chat/TagCrmBar.vue';
 import { useToast } from '@/composables/use-toast';
 import { groupAvatarStore } from '@/composables/use-group-avatar-cache';
 
@@ -480,6 +517,21 @@ const genderChipClass = computed(() => {
 // KHÔNG fallback contact aggregate — conv mới chưa có msg thì hiện 0 mới đúng,
 // còn aggregate tổng across nicks chỉ dùng tooltip để sale biết bối cảnh.
 const msgInCount = computed(() => props.conversation?.friendship?.totalInbound ?? 0);
+
+// Zalo Real labels từ Friend per-pair (read-only — managed in Zalo client)
+const zaloLabels = computed<Array<{ id?: string; name?: string; color?: string }>>(() => {
+  const arr = props.conversation?.friendship?.zaloLabels;
+  return Array.isArray(arr) ? arr : [];
+});
+
+// CRM tags pulled from contact — local mirror to avoid stale prop after PATCH.
+const contactTags = ref<string[]>([]);
+watch(() => props.conversation?.contact?.tags, (t) => {
+  contactTags.value = Array.isArray(t) ? [...t] : [];
+}, { immediate: true });
+function onUpdateTags(next: string[]) {
+  contactTags.value = next;
+}
 const msgOutCount = computed(() => props.conversation?.friendship?.totalOutbound ?? 0);
 const contactTotalIn = computed(() => props.conversation?.contact?.totalInbound ?? 0);
 const contactTotalOut = computed(() => props.conversation?.contact?.totalOutbound ?? 0);
@@ -1347,5 +1399,79 @@ watch(() => props.editingMessage?.id, async (id) => {
 }
 .input-row :deep(.emoji-trigger:hover) {
   background: var(--smax-grey-100);
+}
+
+/* ── Zalo Real labels dropdown ────────────────────────────────────────── */
+.zlbl-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: var(--smax-grey-100);
+  border: 1px solid var(--smax-grey-200);
+  border-radius: 11px;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 7px;
+  cursor: pointer;
+  color: var(--smax-grey-700);
+  transition: background 0.12s;
+}
+.zlbl-trigger:hover { background: var(--smax-primary-soft, #e3f2fd); }
+.zlbl-icon { font-size: 11px; }
+.zlbl-count {
+  background: var(--smax-primary);
+  color: #fff;
+  border-radius: 8px;
+  padding: 0 5px;
+  font-size: 10px;
+  font-weight: 700;
+}
+.zlbl-empty { font-style: italic; color: var(--smax-grey-500); }
+.zlbl-caret { font-size: 9px; opacity: 0.6; }
+
+.zlbl-dropdown {
+  min-width: 240px;
+  max-width: 320px;
+  background: #fff;
+  padding: 8px 10px;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+}
+.zlbl-head {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--smax-grey-600);
+  margin-bottom: 5px;
+}
+.zlbl-empty-state {
+  font-size: 12px;
+  color: var(--smax-grey-500);
+  font-style: italic;
+  padding: 8px 0;
+}
+.zlbl-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 4px 0 6px;
+}
+.zlbl-chip {
+  padding: 2px 9px;
+  border-radius: 11px;
+  font-size: 11.5px;
+  font-weight: 500;
+  border: 1.4px solid var(--smax-grey-300);
+  background: var(--smax-grey-50);
+  color: var(--smax-grey-700);
+}
+.zlbl-foot {
+  font-size: 10px;
+  color: var(--smax-grey-400);
+  margin-top: 4px;
+  border-top: 1px dashed var(--smax-grey-100);
+  padding-top: 4px;
+  text-align: right;
 }
 </style>

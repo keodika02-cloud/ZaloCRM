@@ -292,6 +292,18 @@ function commitEdit() {
   padding-left: 4px;
   font-size: 11px;
   position: relative;
+  opacity: 0;
+  transition: opacity 0.18s;
+  min-height: 22px; /* reserve space so layout doesn't jump */
+}
+/* Reveal actions chỉ khi hover vào note row hoặc khi popover emoji đang mở */
+.note-row:hover .note-actions,
+.note-row:focus-within .note-actions {
+  opacity: 1;
+}
+/* Trên touch device (không hover) → luôn hiện để không kẹt UX */
+@media (hover: none) {
+  .note-actions { opacity: 1; }
 }
 .action-btn {
   background: none;

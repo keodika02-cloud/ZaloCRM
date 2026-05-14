@@ -1,16 +1,27 @@
 <template>
   <aside class="info-panel">
-    <!-- ════════ HEADER pinned (avatar + ID + care-status) ════════ -->
+    <!-- ════════ HEADER pinned (avatar + lead score overlay + care-status) ════════ -->
     <header class="ip-header">
       <button class="ip-close" title="Đóng" @click="$emit('close')">×</button>
-      <Avatar
-        :src="props.contact?.avatarUrl"
-        :name="headerFullName"
-        :size="64"
-        :gender="form.gender"
-        :gradient-seed="props.contact?.id || headerFullName"
-        class="ip-avatar-big"
-      />
+      <div class="ip-avatar-wrap">
+        <Avatar
+          :src="props.contact?.avatarUrl"
+          :name="headerFullName"
+          :size="64"
+          :gender="form.gender"
+          :gradient-seed="props.contact?.id || headerFullName"
+          class="ip-avatar-big"
+        />
+        <!-- Lead score badge overlay (Smax-style điểm KH) -->
+        <span
+          v-if="props.contact"
+          class="lead-score-badge"
+          :class="leadScoreTier"
+          :title="`Lead score: ${props.contact.leadScore ?? 0} điểm${props.contact.lastActivity ? ' · cập nhật ' + relativeTime(props.contact.lastActivity) : ''}`"
+        >
+          ⭐ {{ props.contact.leadScore ?? 0 }}
+        </span>
+      </div>
       <div class="ip-name-line" :title="headerFullName">{{ headerFullName }}</div>
       <div v-if="props.contact?.zaloUid" class="ip-id">UID: {{ props.contact.zaloUid }}</div>
       <div class="ip-care-row">
@@ -53,41 +64,23 @@
 
       <!-- ══════ TAB 1: HỒ SƠ ══════ -->
       <div v-show="activeTab === 'profile'" class="tab-pane">
-        <!-- Inline form: 9 rows -->
-        <section class="ip-form">
+        <!-- Inline form: collapsed (Tên Zalo + SĐT) hoặc expanded (full 9 rows). Auto-collapse sau 5s. -->
+        <section class="ip-form" :class="{ collapsed: !infoExpanded }">
+          <!-- Always visible: Tên Zalo -->
           <div class="ip-form-row">
             <span class="ip-icon">👤</span>
             <span class="ip-label">Tên Zalo</span>
             <input v-model="form.fullName" placeholder="Tên Zalo cung cấp" @blur="saveContact" />
           </div>
-          <div class="ip-form-row">
-            <span class="ip-icon">✏</span>
-            <span class="ip-label">Tên Alias</span>
-            <input v-model="form.crmName" placeholder="Sale tự đặt" @blur="saveContact" />
-          </div>
-          <div class="ip-form-row">
-            <span class="ip-icon">📅</span>
-            <span class="ip-label">Ngày sinh</span>
-            <input type="date" v-model="form.birthDate" @blur="saveContact" />
-          </div>
-          <div class="ip-form-row">
-            <span class="ip-icon">⚧</span>
-            <span class="ip-label">Giới tính</span>
-            <select v-model="form.gender" @change="saveContact">
-              <option :value="null">Không rõ</option>
-              <option value="female">Nữ</option>
-              <option value="male">Nam</option>
-              <option value="other">Khác</option>
-            </select>
-          </div>
 
+          <!-- Always visible: SĐT chính -->
           <div class="ip-form-row">
             <span class="ip-icon">📞</span>
             <span class="ip-label">SĐT</span>
             <div class="phone-cell">
               <input v-model="form.phone" placeholder="SĐT chính" @blur="saveContact" />
               <button
-                v-if="form.phone"
+                v-if="form.phone && infoExpanded"
                 class="show-extra-phones"
                 :title="showExtraPhones ? 'Ẩn SĐT phụ' : 'Hiện SĐT phụ'"
                 @click="showExtraPhones = !showExtraPhones"
@@ -96,32 +89,61 @@
               </button>
             </div>
           </div>
-          <template v-if="showExtraPhones">
-            <div class="ip-form-row sub">
-              <span class="ip-label">SĐT 2</span>
-              <input v-model="form.phone2" placeholder="SĐT phụ 1" @blur="saveContact" />
+
+          <!-- Expand toggle -->
+          <button class="info-expand-toggle" @click="toggleInfoExpand">
+            <span v-if="!infoExpanded">▾ Xem đầy đủ</span>
+            <span v-else>▴ Thu gọn (tự thu sau {{ collapseRemain }}s)</span>
+          </button>
+
+          <!-- Expanded fields -->
+          <template v-if="infoExpanded">
+            <div class="ip-form-row">
+              <span class="ip-icon">✏</span>
+              <span class="ip-label">Tên Alias</span>
+              <input v-model="form.crmName" placeholder="Sale tự đặt" @blur="saveContact" />
             </div>
-            <div class="ip-form-row sub">
-              <span class="ip-label">SĐT 3</span>
-              <input v-model="form.phone3" placeholder="SĐT phụ 2" @blur="saveContact" />
+            <div class="ip-form-row">
+              <span class="ip-icon">📅</span>
+              <span class="ip-label">Ngày sinh</span>
+              <input type="date" v-model="form.birthDate" @blur="saveContact" />
+            </div>
+            <div class="ip-form-row">
+              <span class="ip-icon">⚧</span>
+              <span class="ip-label">Giới tính</span>
+              <select v-model="form.gender" @change="saveContact">
+                <option :value="null">Không rõ</option>
+                <option value="female">Nữ</option>
+                <option value="male">Nam</option>
+                <option value="other">Khác</option>
+              </select>
+            </div>
+            <template v-if="showExtraPhones">
+              <div class="ip-form-row sub">
+                <span class="ip-label">SĐT 2</span>
+                <input v-model="form.phone2" placeholder="SĐT phụ 1" @blur="saveContact" />
+              </div>
+              <div class="ip-form-row sub">
+                <span class="ip-label">SĐT 3</span>
+                <input v-model="form.phone3" placeholder="SĐT phụ 2" @blur="saveContact" />
+              </div>
+            </template>
+            <div class="ip-form-row">
+              <span class="ip-icon">✉</span>
+              <span class="ip-label">Email</span>
+              <input v-model="form.email" placeholder="Chưa có email" @blur="saveContact" />
+            </div>
+            <div class="ip-form-row">
+              <span class="ip-icon">📍</span>
+              <span class="ip-label">Địa chỉ</span>
+              <input v-model="form.addressLine" placeholder="Địa chỉ chi tiết" @blur="saveContact" />
+            </div>
+            <div class="ip-form-row">
+              <span class="ip-icon">💼</span>
+              <span class="ip-label">Nghề</span>
+              <input v-model="form.occupation" placeholder="Nghề nghiệp" @blur="saveContact" />
             </div>
           </template>
-
-          <div class="ip-form-row">
-            <span class="ip-icon">✉</span>
-            <span class="ip-label">Email</span>
-            <input v-model="form.email" placeholder="Chưa có email" @blur="saveContact" />
-          </div>
-          <div class="ip-form-row">
-            <span class="ip-icon">📍</span>
-            <span class="ip-label">Địa chỉ</span>
-            <input v-model="form.addressLine" placeholder="Địa chỉ chi tiết" @blur="saveContact" />
-          </div>
-          <div class="ip-form-row">
-            <span class="ip-icon">💼</span>
-            <span class="ip-label">Nghề</span>
-            <input v-model="form.occupation" placeholder="Nghề nghiệp" @blur="saveContact" />
-          </div>
         </section>
 
         <v-alert v-if="saveSuccess" type="success" density="compact" class="mx-3 my-2" closable
@@ -133,55 +155,7 @@
           Lưu thất bại, thử lại.
         </v-alert>
 
-        <!-- Lead score -->
-        <section v-if="props.contact" class="ip-section">
-          <div class="ip-section-title">
-            <span class="accent" style="background: var(--smax-success)" />
-            ⭐ Lead score
-          </div>
-          <div class="metrics-row">
-            <span class="metric-num">{{ props.contact.leadScore ?? 0 }}</span>
-            <span class="metric-label">điểm</span>
-            <span v-if="props.contact.lastActivity" class="metric-aux">
-              · cập nhật {{ relativeTime(props.contact.lastActivity) }}
-            </span>
-          </div>
-        </section>
-
-        <!-- Tag CRM hệ thống (cấp KH) -->
-        <section class="ip-section">
-          <div class="ip-section-title">
-            <span class="accent" style="background: var(--smax-info)" />
-            🏷 Tag CRM hệ thống
-            <span class="scope-tag global">cấp KH</span>
-          </div>
-          <div class="tag-list">
-            <span v-for="tag in form.tags" :key="tag" class="tag-chip">
-              {{ tag }}
-              <span class="x" @click="removeTag(tag)">×</span>
-            </span>
-            <input
-              v-if="addingTag"
-              v-model="newTag"
-              ref="newTagInput"
-              class="tag-input"
-              placeholder="Tag mới…"
-              @keydown.enter="confirmAddTag"
-              @blur="confirmAddTag"
-            />
-            <button v-else class="tag-chip add" @click="startAddTag">+ Thêm</button>
-          </div>
-          <!-- Quick-add suggestions khi chưa có tag nào -->
-          <div v-if="!form.tags.length && !addingTag" class="tag-suggestions">
-            <span class="suggestion-label">Gắn nhanh:</span>
-            <button
-              v-for="s in TAG_SUGGESTIONS"
-              :key="s"
-              class="tag-chip suggestion"
-              @click="addSuggestedTag(s)"
-            >+ {{ s }}</button>
-          </div>
-        </section>
+        <!-- Tag CRM section moved to MessageThread chat input bar (Smax-style) -->
 
         <!-- ──── CRM Notes thread (Facebook-style, AI appointment suggest) ──── -->
         <section class="ip-section ip-notes-section">
@@ -346,7 +320,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, nextTick, watch } from 'vue';
+import { ref, computed, watch, onBeforeUnmount } from 'vue';
 import type { Contact } from '@/composables/use-contacts';
 import type { AiSentiment } from '@/composables/use-chat';
 import { useChatContactPanel } from '@/composables/use-chat-contact-panel';
@@ -392,6 +366,43 @@ const {
 
 // ════════ Tab state (persist sang tab khác KH khác) ════════
 const activeTab = ref<'profile' | 'relations' | 'activity'>('profile');
+
+// Info section auto-collapse: mặc định compact (chỉ Tên + SĐT). Click tab Hồ Sơ
+// hoặc bấm "Xem đầy đủ" → expand, đếm 5s rồi tự thu gọn lại.
+const infoExpanded = ref(false);
+const collapseRemain = ref(5);
+let collapseTimer: ReturnType<typeof setInterval> | null = null;
+function clearCollapseTimer() {
+  if (collapseTimer) { clearInterval(collapseTimer); collapseTimer = null; }
+}
+function startCollapseCountdown() {
+  clearCollapseTimer();
+  collapseRemain.value = 5;
+  collapseTimer = setInterval(() => {
+    collapseRemain.value--;
+    if (collapseRemain.value <= 0) {
+      infoExpanded.value = false;
+      clearCollapseTimer();
+    }
+  }, 1000);
+}
+function toggleInfoExpand() {
+  infoExpanded.value = !infoExpanded.value;
+  if (infoExpanded.value) startCollapseCountdown();
+  else clearCollapseTimer();
+}
+// Khi click tab Hồ Sơ → expand + start countdown
+watch(activeTab, (tab) => {
+  if (tab === 'profile') {
+    infoExpanded.value = true;
+    startCollapseCountdown();
+  } else {
+    clearCollapseTimer();
+    infoExpanded.value = false;
+  }
+});
+
+onBeforeUnmount(() => clearCollapseTimer());
 
 // ════════ Relations data (friends per nick = KH Con) — fetch khi đổi contact ═══
 interface FriendItem {
@@ -484,40 +495,21 @@ const headerFullName = computed(() =>
   props.contact?.crmName || props.contact?.fullName || 'Khách hàng',
 );
 
+// Lead score tier để màu badge overlay trên avatar (thấp/TB/cao)
+const leadScoreTier = computed(() => {
+  const s = props.contact?.leadScore ?? 0;
+  if (s >= 70) return 'tier-hot';
+  if (s >= 40) return 'tier-warm';
+  if (s >= 10) return 'tier-cool';
+  return 'tier-cold';
+});
+
 // ════════ Phones extras ════════
 const showExtraPhones = ref(false);
 const filledExtras = computed(() => [form.phone2, form.phone3].filter(Boolean).length);
 
-// ════════ Tag list (CRM hệ thống) ════════
-const addingTag = ref(false);
-const newTag = ref('');
-const newTagInput = ref<HTMLInputElement | null>(null);
-function startAddTag() {
-  addingTag.value = true;
-  nextTick(() => newTagInput.value?.focus());
-}
-function confirmAddTag() {
-  const t = newTag.value.trim();
-  if (t && !form.tags.includes(t)) {
-    form.tags.push(t);
-    saveContact();
-  }
-  newTag.value = '';
-  addingTag.value = false;
-}
-function removeTag(tag: string) {
-  form.tags = form.tags.filter(t => t !== tag);
-  saveContact();
-}
-
-// Tag quick-add suggestions cho contact mới chưa có tag
-const TAG_SUGGESTIONS = ['vip', 'quan_tam', 'cần_báo_giá', 'hot_lead', 'lạnh', 'đầu_tư'] as const;
-function addSuggestedTag(tag: string) {
-  if (!form.tags.includes(tag)) {
-    form.tags.push(tag);
-    saveContact();
-  }
-}
+// Tag CRM hệ thống đã chuyển sang TagCrmBar trên chat input (Cột 3).
+// Zalo Real labels chuyển sang dropdown trong header Cột 3 (MessageThread).
 
 // ════════ Automation cards (placeholder — chờ backend) ════════
 const automationCards = computed<AutomationCard[]>(() => {
@@ -618,10 +610,35 @@ function relativeTime(dateStr: string) {
 }
 .ip-close:hover { background: var(--smax-grey-100); }
 
+.ip-avatar-wrap {
+  position: relative;
+  display: inline-block;
+}
 .ip-avatar-big {
   display: block;
   margin: 0 auto;
 }
+
+/* Lead score badge — overlay trên avatar (góc dưới-phải), Smax-style "điểm KH" */
+.lead-score-badge {
+  position: absolute;
+  bottom: -3px;
+  right: -8px;
+  background: var(--smax-bg, #fff);
+  border: 2px solid #fff;
+  border-radius: 11px;
+  padding: 1px 7px 1px 6px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.4;
+  white-space: nowrap;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+  cursor: help;
+}
+.lead-score-badge.tier-hot   { background: #ffebee; color: #c62828; border-color: #ffcdd2; }
+.lead-score-badge.tier-warm  { background: #fff3e0; color: #ef6c00; border-color: #ffe0b2; }
+.lead-score-badge.tier-cool  { background: #e3f2fd; color: #1565c0; border-color: #bbdefb; }
+.lead-score-badge.tier-cold  { background: #f5f6fa; color: var(--smax-grey-600); border-color: #e0e0e0; }
 
 .ip-name-line {
   margin-top: 7px;
@@ -770,6 +787,20 @@ function relativeTime(dateStr: string) {
 
 /* ════════ Inline form ════════ */
 .ip-form { padding: 4px 0; border-bottom: 1px solid var(--smax-grey-200); }
+.info-expand-toggle {
+  width: 100%;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 11px;
+  color: var(--smax-primary, #2962ff);
+  font-weight: 500;
+  padding: 6px 13px;
+  text-align: left;
+  transition: background 0.12s;
+}
+.info-expand-toggle:hover { background: var(--smax-primary-soft, #e3f2fd); }
 .ip-form-row {
   display: grid;
   grid-template-columns: 22px 80px 1fr;

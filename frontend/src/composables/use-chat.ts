@@ -68,6 +68,8 @@ export interface FriendshipInfo {
   /** Per-pair leadScore — sale chăm KH này từ nick này */
   leadScore?: number;
   statusRef?: { id: string; name: string; color: string | null; order: number } | null;
+  /** Zalo native labels synced từ Zalo client (Friend.zaloLabels) */
+  zaloLabels?: Array<{ id?: string; name?: string; color?: string }>;
 }
 
 export interface Conversation {

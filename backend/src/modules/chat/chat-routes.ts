@@ -292,6 +292,7 @@ export async function chatRoutes(app: FastifyInstance) {
       totalOutbound: number;
       leadScore: number;
       statusRef: { id: string; name: string; color: string | null; order: number } | null;
+      zaloLabels: unknown;
     } | null = null;
     if (conversation.threadType === 'user' && conversation.contactId && conversation.externalThreadId) {
       const f = await prisma.friend.findUnique({
@@ -307,6 +308,7 @@ export async function chatRoutes(app: FastifyInstance) {
           totalOutbound: true,
           leadScore: true,
           statusRef: { select: { id: true, name: true, color: true, order: true } },
+          zaloLabels: true,
         },
       });
       friendship = f;

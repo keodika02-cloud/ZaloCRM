@@ -1,34 +1,37 @@
 <template>
   <section class="notes-section">
-    <!-- Header -->
+    <!-- Header: title + count + Enter-mode toggle -->
     <div class="notes-header">
       <div class="notes-title">
         📝 Ghi chú
         <span v-if="rootCount" class="notes-count">#{{ rootCount }}</span>
       </div>
-      <button v-if="!composerOpen" class="notes-add-btn" @click="openComposer(null)">
-        + Thêm ghi chú
-      </button>
+      <label class="enter-toggle" :title="enterToSave ? 'Enter = Lưu · Shift+Enter = xuống dòng' : 'Enter = xuống dòng · Ctrl+Enter = Lưu'">
+        <input type="checkbox" v-model="enterToSave" />
+        <span>Enter để lưu</span>
+      </label>
     </div>
 
-    <!-- Composer (root level) -->
-    <div v-if="composerOpen && replyTarget === null" class="note-composer">
+    <!-- Composer (always visible at top) -->
+    <div class="note-composer always-on">
       <textarea
         ref="composerInput"
-        v-model="composerDraft"
+        v-model="rootDraft"
         class="note-input"
-        placeholder="Ghi chú... (Ctrl+Enter để lưu, Esc để hủy)"
-        rows="2"
-        @keydown.ctrl.enter.prevent="submitComposer"
-        @keydown.meta.enter.prevent="submitComposer"
-        @keydown.escape="closeComposer"
+        :placeholder="rootPlaceholder"
+        rows="1"
+        @keydown="onComposerKeydown"
+        @input="autoGrow"
       />
-      <div class="composer-actions">
-        <button class="btn-link" @click="closeComposer">Hủy</button>
-        <button class="btn-primary" :disabled="!composerDraft.trim() || saving" @click="submitComposer">
-          {{ saving ? 'Đang lưu…' : 'Lưu' }}
-        </button>
-      </div>
+      <button
+        class="send-btn"
+        :disabled="!rootDraft.trim() || saving"
+        :title="enterToSave ? 'Enter để lưu' : 'Ctrl+Enter để lưu'"
+        @click="submitRoot"
+      >
+        <span v-if="saving">…</span>
+        <span v-else>➤</span>
+      </button>
     </div>
 
     <!-- Scroll area -->
@@ -45,7 +48,7 @@
           :note="note"
           :current-user-id="currentUserId"
           @react="onReact"
-          @reply="openComposer(note.id)"
+          @reply="openReply(note.id)"
           @edit="onEdit"
           @delete="onDelete"
           @ai-parse="onAiParse"
@@ -87,23 +90,20 @@
         </div>
 
         <!-- Reply composer (when this note is the active reply target) -->
-        <div v-if="composerOpen && replyTarget === note.id" class="reply-composer">
+        <div v-if="replyTarget === note.id" class="note-composer reply-composer">
           <textarea
-            ref="composerInput"
-            v-model="composerDraft"
-            class="note-input small"
+            ref="replyInput"
+            v-model="replyDraft"
+            class="note-input"
             placeholder="Trả lời…"
-            rows="2"
-            @keydown.ctrl.enter.prevent="submitComposer"
-            @keydown.meta.enter.prevent="submitComposer"
-            @keydown.escape="closeComposer"
+            rows="1"
+            @keydown="onReplyKeydown"
           />
-          <div class="composer-actions">
-            <button class="btn-link" @click="closeComposer">Hủy</button>
-            <button class="btn-primary" :disabled="!composerDraft.trim() || saving" @click="submitComposer">
-              {{ saving ? 'Đang gửi…' : 'Gửi' }}
-            </button>
-          </div>
+          <button class="send-btn small" :disabled="!replyDraft.trim() || saving" @click="submitReply">
+            <span v-if="saving">…</span>
+            <span v-else>➤</span>
+          </button>
+          <button class="btn-link small-x" @click="cancelReply" title="Hủy">×</button>
         </div>
       </article>
     </div>
@@ -127,43 +127,102 @@ const currentUserId = computed(() => auth.user?.id || '');
 const { notes, loading, saving, rootCount, fetch, create, update, remove, toggleReaction, aiParse, linkAppointment } =
   useNotes(() => props.contactId);
 
-const composerOpen = ref(false);
-const replyTarget = ref<string | null>(null);
-const composerDraft = ref('');
+// Enter behavior — persist preference in localStorage. Default = TRUE (Enter để lưu).
+const ENTER_KEY = 'zalocrm.notes.enterToSave';
+const enterToSave = ref<boolean>(localStorage.getItem(ENTER_KEY) !== '0');
+watch(enterToSave, (v) => { localStorage.setItem(ENTER_KEY, v ? '1' : '0'); });
+
+const rootDraft = ref('');
 const composerInput = ref<HTMLTextAreaElement | null>(null);
+const rootPlaceholder = computed(() =>
+  enterToSave.value
+    ? 'Nhập ghi chú… (Enter để lưu, Shift+Enter xuống dòng)'
+    : 'Nhập ghi chú… (Ctrl+Enter để lưu)',
+);
+
+const replyTarget = ref<string | null>(null);
+const replyDraft = ref('');
+const replyInput = ref<HTMLTextAreaElement | null>(null);
 
 const aiResult = ref(new Map<string, ParsedAppointment>());
 const creatingApt = ref(new Set<string>());
 
 watch(() => props.contactId, (id) => {
-  composerOpen.value = false;
-  composerDraft.value = '';
+  rootDraft.value = '';
+  replyDraft.value = '';
+  replyTarget.value = null;
   aiResult.value.clear();
   if (id) void fetch();
   else notes.value = [];
 }, { immediate: true });
 
-function openComposer(parentId: string | null) {
-  composerOpen.value = true;
-  replyTarget.value = parentId;
-  composerDraft.value = '';
-  nextTick(() => composerInput.value?.focus());
+function autoGrow(e: Event) {
+  const t = e.target as HTMLTextAreaElement;
+  t.style.height = 'auto';
+  t.style.height = Math.min(t.scrollHeight, 120) + 'px';
 }
 
-function closeComposer() {
-  composerOpen.value = false;
-  composerDraft.value = '';
-  replyTarget.value = null;
+function onComposerKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape') { rootDraft.value = ''; return; }
+  if (e.key !== 'Enter') return;
+  if (enterToSave.value) {
+    if (e.shiftKey) return; // xuống dòng
+    e.preventDefault();
+    void submitRoot();
+  } else {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      void submitRoot();
+    }
+  }
 }
 
-async function submitComposer() {
-  if (!composerDraft.value.trim()) return;
-  const created = await create(composerDraft.value, replyTarget.value);
+function onReplyKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape') { cancelReply(); return; }
+  if (e.key !== 'Enter') return;
+  if (enterToSave.value) {
+    if (e.shiftKey) return;
+    e.preventDefault();
+    void submitReply();
+  } else if (e.ctrlKey || e.metaKey) {
+    e.preventDefault();
+    void submitReply();
+  }
+}
+
+async function submitRoot() {
+  if (!rootDraft.value.trim()) return;
+  const created = await create(rootDraft.value, null);
   if (created) {
-    toast.success(replyTarget.value ? 'Đã trả lời' : 'Đã thêm ghi chú');
-    closeComposer();
+    toast.success('Đã thêm ghi chú');
+    rootDraft.value = '';
+    nextTick(() => {
+      if (composerInput.value) composerInput.value.style.height = 'auto';
+    });
   } else {
     toast.error('Không thể lưu ghi chú');
+  }
+}
+
+function openReply(parentId: string) {
+  replyTarget.value = parentId;
+  replyDraft.value = '';
+  nextTick(() => replyInput.value?.focus());
+}
+
+function cancelReply() {
+  replyTarget.value = null;
+  replyDraft.value = '';
+}
+
+async function submitReply() {
+  if (!replyDraft.value.trim() || !replyTarget.value) return;
+  const created = await create(replyDraft.value, replyTarget.value);
+  if (created) {
+    toast.success('Đã trả lời');
+    cancelReply();
+  } else {
+    toast.error('Không thể gửi trả lời');
   }
 }
 
@@ -265,71 +324,80 @@ defineExpose({ rootCount });
   font-weight: 600;
   text-transform: none;
 }
-.notes-add-btn {
-  background: var(--smax-primary-soft, #e3f2fd);
-  color: var(--smax-primary, #2962ff);
-  border: none;
-  font-size: 11px;
-  font-weight: 600;
-  padding: 4px 10px;
-  border-radius: 6px;
+.enter-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--smax-grey-600);
   cursor: pointer;
-  transition: filter 0.15s;
+  user-select: none;
 }
-.notes-add-btn:hover { filter: brightness(0.95); }
+.enter-toggle input { margin: 0; cursor: pointer; }
 
-/* ── Composer ──────────────────────────────────────────────────────────── */
-.note-composer, .reply-composer {
-  border: 1.5px solid var(--smax-primary, #2962ff);
+/* ── Composer (input + send inline) ───────────────────────────────────── */
+.note-composer {
+  display: flex;
+  align-items: flex-end;
+  gap: 5px;
+  border: 1.5px solid var(--smax-grey-200);
   border-radius: 8px;
-  padding: 6px;
+  padding: 5px 5px 5px 8px;
   background: var(--smax-bg, #fff);
+  transition: border-color 0.15s;
+}
+.note-composer:focus-within {
+  border-color: var(--smax-primary, #2962ff);
+  box-shadow: 0 0 0 3px rgba(33,150,243,0.08);
 }
 .reply-composer {
   margin-top: 6px;
   margin-left: 24px;
-  border-color: var(--smax-grey-200);
 }
 .note-input {
-  width: 100%;
+  flex: 1;
   border: none;
   outline: none;
-  resize: vertical;
+  resize: none;
   font-family: inherit;
   font-size: 13px;
   line-height: 1.45;
   background: transparent;
   color: var(--smax-text);
-  min-height: 38px;
+  min-height: 22px;
+  max-height: 120px;
+  padding: 4px 0;
 }
-.note-input.small { font-size: 12px; }
-
-.composer-actions {
+.send-btn {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--smax-primary, #2962ff);
+  color: #fff;
+  border: none;
+  font-size: 14px;
+  cursor: pointer;
   display: flex;
-  justify-content: flex-end;
-  gap: 6px;
-  margin-top: 4px;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, transform 0.1s;
 }
+.send-btn.small { width: 26px; height: 26px; font-size: 12px; }
+.send-btn:hover:not(:disabled) { background: #1e4cc7; }
+.send-btn:active:not(:disabled) { transform: scale(0.92); }
+.send-btn:disabled { background: var(--smax-grey-300); cursor: not-allowed; }
 .btn-link {
   background: none;
   border: none;
-  color: var(--smax-grey-600);
-  font-size: 12px;
-  cursor: pointer;
-  padding: 4px 8px;
-}
-.btn-link:hover { color: var(--smax-grey-800); }
-.btn-primary {
-  background: var(--smax-primary);
-  color: #fff;
-  border: none;
-  border-radius: 6px;
-  padding: 5px 12px;
-  font-size: 12px;
-  font-weight: 600;
+  color: var(--smax-grey-500);
   cursor: pointer;
 }
-.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-link.small-x {
+  font-size: 18px;
+  padding: 0 4px;
+  line-height: 1;
+}
 
 /* ── List / scroll ─────────────────────────────────────────────────────── */
 .notes-list {

@@ -129,29 +129,50 @@ export async function syncLabelsForAccount(accountId: string, orgId: string): Pr
     update: { name: groupName }, // rename khi displayName/phone đổi
   });
 
-  // Upsert CrmTag definitions per label — use sourceZaloLabelId as natural key
+  // Upsert CrmTag per label — 3-step để xử lý legacy data từ PR2:
+  //  1. Find theo sourceZaloLabelId (PR3+ rows) → update
+  //  2. Else find theo (orgId, name) (legacy PR2 rows hoặc orphan) → claim + update fields
+  //  3. Else create mới
+  // Tránh upsert(where=sourceZaloLabelId) hit create branch khi legacy có same name
+  // → fail unique constraint (orgId, name).
   for (const l of upserted) {
     const tagName = `🔵 ${l.text}`;
-    await prisma.crmTag.upsert({
+    const baseData = {
+      color: l.color || '#1976D2',
+      emoji: l.emoji || null,
+      groupId: group.id,
+      category: groupName,
+      managedBy: 'zalo_sync',
+      sourceZaloLabelId: l.zaloLabelId,
+      description: `Auto-sync từ Zalo label ID ${l.zaloLabelId}`,
+      archivedAt: null,
+    };
+
+    const bySource = await prisma.crmTag.findUnique({
       where: { sourceZaloLabelId: l.zaloLabelId },
-      create: {
-        orgId,
-        name: tagName,
-        color: l.color || '#1976D2',
-        emoji: l.emoji || null,
-        groupId: group.id,
-        category: groupName,             // legacy field cho FE chưa migrate
-        managedBy: 'zalo_sync',
-        sourceZaloLabelId: l.zaloLabelId,
-        description: `Auto-sync từ Zalo label ID ${l.zaloLabelId}`,
-      },
-      update: {
-        name: tagName,
-        color: l.color || '#1976D2',
-        emoji: l.emoji || null,
-        groupId: group.id,
-        archivedAt: null,                // un-archive nếu label hồi sinh
-      },
+    });
+    if (bySource) {
+      await prisma.crmTag.update({
+        where: { id: bySource.id },
+        data: { name: tagName, ...baseData },
+      });
+      continue;
+    }
+
+    const byName = await prisma.crmTag.findUnique({
+      where: { orgId_name: { orgId, name: tagName } },
+    });
+    if (byName) {
+      // Claim legacy row (sourceZaloLabelId=null từ PR2) → upgrade managedBy
+      await prisma.crmTag.update({
+        where: { id: byName.id },
+        data: baseData,
+      });
+      continue;
+    }
+
+    await prisma.crmTag.create({
+      data: { orgId, name: tagName, ...baseData },
     });
   }
 

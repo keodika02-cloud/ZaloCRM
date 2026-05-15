@@ -102,9 +102,11 @@
               v-for="tag in mergedTags(conv).slice(0, 3)"
               :key="tag"
               class="tag-mini"
-              :class="{ 'tag-zalo-managed': tag.startsWith('🔵 ') }"
-              :style="`background:${tagBgColor(tag)}`"
-            >{{ tag }}</span>
+              :class="{ 'tag-zalo': isZaloManaged(tag), 'tag-crm': !isZaloManaged(tag) }"
+              :style="{ '--tag-color': tagColor(tag) }"
+            >
+              <TagIcon v-if="isZaloManaged(tag)" :size="11" />{{ cleanTagName(tag) }}
+            </span>
 
             <v-menu
               v-if="mergedTags(conv).length > 3"
@@ -125,8 +127,11 @@
                   v-for="tag in mergedTags(conv).slice(3)"
                   :key="tag"
                   class="tag-popup-pill"
-                  :style="`background:${tagBgColor(tag)}`"
-                >{{ tag }}</span>
+                  :class="{ 'tag-zalo': isZaloManaged(tag), 'tag-crm': !isZaloManaged(tag) }"
+                  :style="{ '--tag-color': tagColor(tag) }"
+                >
+                  <TagIcon v-if="isZaloManaged(tag)" :size="11" />{{ cleanTagName(tag) }}
+                </span>
               </div>
             </v-menu>
 
@@ -181,6 +186,8 @@ import { api } from '@/api/index';
 import AiSentimentBadge from '@/components/ai/ai-sentiment-badge.vue';
 import Avatar from '@/components/ui/Avatar.vue';
 import NewMessageDialog from '@/components/chat/NewMessageDialog.vue';
+import TagIcon from '@/components/icons/TagIcon.vue';
+import { loadTagDefs, isZaloManaged, cleanTagName, tagColor } from '@/composables/use-crm-tag-defs';
 
 const props = defineProps<{
   conversations: Conversation[];
@@ -381,7 +388,8 @@ watch(activeTab, () => {
 });
 
 onMounted(async () => {
-  await Promise.all([fetchCounts(), fetchAvailableTags()]);
+  // Load CrmTag defs (color + managedBy) cho TagIcon render — share cache toàn app
+  await Promise.all([fetchCounts(), fetchAvailableTags(), loadTagDefs()]);
 });
 
 // ── Utility functions ───────────────────────────────────────────────────────
@@ -733,13 +741,36 @@ function formatTime(dateStr: string | null): string {
   height: 16px;
 }
 .tag-mini {
-  display: inline-block;
-  padding: 1px 7px; border-radius: 4px;
-  font-size: 10px; font-weight: 600;
-  color: white;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 7px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
   flex-shrink: 0;
-  max-width: 80px;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: 100px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border: 1px solid;
+}
+/* Monochromatic chip — bg/border/text derive từ --tag-color via color-mix.
+ * Zalo-managed: icon + clean name. CRM: chỉ name. */
+.tag-mini.tag-zalo {
+  --tag-color: #0068FF;
+  background: color-mix(in srgb, var(--tag-color) 12%, white);
+  border-color: color-mix(in srgb, var(--tag-color) 70%, white);
+  color: color-mix(in srgb, var(--tag-color) 75%, black);
+}
+.tag-mini.tag-zalo :deep(.tag-icon) {
+  color: var(--tag-color);
+}
+.tag-mini.tag-crm {
+  --tag-color: #546E7A;
+  background: color-mix(in srgb, var(--tag-color) 10%, white);
+  border-color: color-mix(in srgb, var(--tag-color) 60%, white);
+  color: color-mix(in srgb, var(--tag-color) 80%, black);
 }
 /* Overflow "+N" chip — hover/click hiện popup các tag còn lại */
 .tag-overflow {
@@ -773,13 +804,30 @@ function formatTime(dateStr: string | null): string {
   max-width: 280px;
 }
 .tag-popup-pill {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
   padding: 3px 10px;
   border-radius: 6px;
   font-size: 11px;
   font-weight: 600;
-  color: white;
   white-space: nowrap;
+  border: 1px solid;
+}
+.tag-popup-pill.tag-zalo {
+  --tag-color: #0068FF;
+  background: color-mix(in srgb, var(--tag-color) 12%, white);
+  border-color: color-mix(in srgb, var(--tag-color) 70%, white);
+  color: color-mix(in srgb, var(--tag-color) 75%, black);
+}
+.tag-popup-pill.tag-zalo :deep(.tag-icon) {
+  color: var(--tag-color);
+}
+.tag-popup-pill.tag-crm {
+  --tag-color: #546E7A;
+  background: color-mix(in srgb, var(--tag-color) 10%, white);
+  border-color: color-mix(in srgb, var(--tag-color) 60%, white);
+  color: color-mix(in srgb, var(--tag-color) 80%, black);
 }
 .status-pill {
   display: inline-flex; align-items: center; gap: 3px;

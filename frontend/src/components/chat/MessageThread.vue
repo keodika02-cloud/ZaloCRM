@@ -700,12 +700,30 @@ function goToLabelsSettings() {
   window.location.assign('/settings?tab=zalo-labels');
 }
 
-// CRM tags pulled from contact — local mirror to avoid stale prop after PATCH.
+// CRM tags = merge Contact.tags + Friend.crmTagsPerNick (Zalo-mirrored "🔵 X").
+// Source of truth: 2 fields khác nhau. Dedup, Zalo tags lên trước.
 const contactTags = ref<string[]>([]);
-watch(() => props.conversation?.contact?.tags, (t) => {
-  contactTags.value = Array.isArray(t) ? [...t] : [];
-}, { immediate: true });
+function recomputeTags() {
+  const ct = Array.isArray(props.conversation?.contact?.tags)
+    ? (props.conversation!.contact!.tags as string[])
+    : [];
+  const ftRaw = (props.conversation?.friendship as { crmTagsPerNick?: string[] } | null | undefined)?.crmTagsPerNick;
+  const ft = Array.isArray(ftRaw) ? ftRaw : [];
+  const seen = new Set<string>();
+  const merged: string[] = [];
+  for (const t of ft) if (t.startsWith('🔵 ') && !seen.has(t)) { seen.add(t); merged.push(t); }
+  for (const t of ft) if (!t.startsWith('🔵 ') && !seen.has(t)) { seen.add(t); merged.push(t); }
+  for (const t of ct) if (!seen.has(t)) { seen.add(t); merged.push(t); }
+  contactTags.value = merged;
+}
+watch(() => [
+  props.conversation?.contact?.tags,
+  (props.conversation?.friendship as { crmTagsPerNick?: string[] } | null | undefined)?.crmTagsPerNick,
+], recomputeTags, { immediate: true, deep: true });
+
 function onUpdateTags(next: string[]) {
+  // TagCrmBar PUT only updates Contact.tags. Zalo-managed (🔵) tags stay in
+  // Friend.crmTagsPerNick (read-only). Merge view-side preserves both.
   contactTags.value = next;
 }
 const msgOutCount = computed(() => props.conversation?.friendship?.totalOutbound ?? 0);

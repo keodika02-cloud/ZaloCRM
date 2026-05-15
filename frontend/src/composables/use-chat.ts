@@ -70,6 +70,8 @@ export interface FriendshipInfo {
   statusRef?: { id: string; name: string; color: string | null; order: number } | null;
   /** Zalo native labels synced từ Zalo client (Friend.zaloLabels) */
   zaloLabels?: Array<{ id?: string; name?: string; color?: string }>;
+  /** Per-pair CRM tags (kèm Zalo-mirrored "🔵 X" tags). Source of truth Friend-level. */
+  crmTagsPerNick?: string[];
 }
 
 export interface Conversation {

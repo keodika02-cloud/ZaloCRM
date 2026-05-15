@@ -237,17 +237,27 @@ export async function chatRoutes(app: FastifyInstance) {
     const userPairs = conversations
       .filter(c => c.threadType === 'user' && c.contactId)
       .map(c => ({ zaloAccountId: c.zaloAccountId, contactId: c.contactId! }));
-    let friendMap = new Map<string, { relationshipKind: string; friendshipStatus: string; becameFriendAt: Date | null; firstMessageAt: Date | null }>();
+    let friendMap = new Map<string, {
+      relationshipKind: string; friendshipStatus: string;
+      becameFriendAt: Date | null; firstMessageAt: Date | null;
+      crmTagsPerNick: unknown;
+    }>();
     if (userPairs.length) {
       const friends = await prisma.friend.findMany({
         where: { OR: userPairs.map(p => ({ AND: [{ zaloAccountId: p.zaloAccountId }, { contactId: p.contactId }] })) },
-        select: { zaloAccountId: true, contactId: true, relationshipKind: true, friendshipStatus: true, becameFriendAt: true, firstMessageAt: true },
+        select: {
+          zaloAccountId: true, contactId: true,
+          relationshipKind: true, friendshipStatus: true,
+          becameFriendAt: true, firstMessageAt: true,
+          crmTagsPerNick: true,                // per-pair CRM tags (kèm Zalo-mirrored "🔵 X")
+        },
       });
       friendMap = new Map(friends.map(f => [`${f.zaloAccountId}:${f.contactId}`, {
         relationshipKind: f.relationshipKind,
         friendshipStatus: f.friendshipStatus,
         becameFriendAt: f.becameFriendAt,
         firstMessageAt: f.firstMessageAt,
+        crmTagsPerNick: f.crmTagsPerNick,
       }]));
     }
 
@@ -293,6 +303,7 @@ export async function chatRoutes(app: FastifyInstance) {
       leadScore: number;
       statusRef: { id: string; name: string; color: string | null; order: number } | null;
       zaloLabels: unknown;
+      crmTagsPerNick: unknown;
     } | null = null;
     if (conversation.threadType === 'user' && conversation.contactId && conversation.externalThreadId) {
       const f = await prisma.friend.findUnique({
@@ -309,6 +320,7 @@ export async function chatRoutes(app: FastifyInstance) {
           leadScore: true,
           statusRef: { select: { id: true, name: true, color: true, order: true } },
           zaloLabels: true,
+          crmTagsPerNick: true,
         },
       });
       friendship = f;

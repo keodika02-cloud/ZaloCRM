@@ -93,17 +93,19 @@
           <div class="ci-preview">{{ lastMessagePreview(conv) }}</div>
 
           <!-- Tag row luôn render (kể cả rỗng) để giữ layout cố định.
+               Merge Contact.tags + Friend.crmTagsPerNick (Zalo-mirrored 🔵 X).
                Show 3 tag đầu + "+N" chip click xem rest qua v-menu. -->
           <div class="ci-tag-row">
             <span
-              v-for="tag in (conv.contact?.tags || []).slice(0, 3)"
+              v-for="tag in mergedTags(conv).slice(0, 3)"
               :key="tag"
               class="tag-mini"
+              :class="{ 'tag-zalo-managed': tag.startsWith('🔵 ') }"
               :style="`background:${tagBgColor(tag)}`"
             >{{ tag }}</span>
 
             <v-menu
-              v-if="(conv.contact?.tags || []).length > 3"
+              v-if="mergedTags(conv).length > 3"
               :close-on-content-click="false"
               location="top start"
               open-on-hover
@@ -112,13 +114,13 @@
                 <span
                   v-bind="actProps"
                   class="tag-overflow"
-                  :title="`Còn ${(conv.contact?.tags || []).length - 3} tag khác`"
+                  :title="`Còn ${mergedTags(conv).length - 3} tag khác`"
                   @click.stop
-                >+{{ (conv.contact?.tags || []).length - 3 }}</span>
+                >+{{ mergedTags(conv).length - 3 }}</span>
               </template>
               <div class="tag-overflow-popup">
                 <span
-                  v-for="tag in (conv.contact?.tags || []).slice(3)"
+                  v-for="tag in mergedTags(conv).slice(3)"
                   :key="tag"
                   class="tag-popup-pill"
                   :style="`background:${tagBgColor(tag)}`"
@@ -260,12 +262,29 @@ function colorOfTag(tag: string): string {
   return TAG_COLOR_MAP[tag] || TAG_COLOR_MAP[tag.toLowerCase()] || 'grey';
 }
 function tagBgColor(tag: string): string {
+  // Zalo-mirrored tags ("🔵 X") luôn dùng xanh dương nhất quán
+  if (tag.startsWith('🔵 ')) return '#1976d2';
   const color = colorOfTag(tag);
   const map: Record<string, string> = {
     red: '#ef5350', purple: '#6f48d9', orange: '#ff9800',
     yellow: '#f9a825', green: '#43a047', blue: '#1976d2', grey: '#9e9e9e',
   };
   return map[color] || '#9e9e9e';
+}
+
+/* Merge Contact.tags + Friend.crmTagsPerNick (Zalo-mirrored "🔵 X").
+ * Dedup, Zalo tags hiển thị đầu (priority cho per-pair context). */
+function mergedTags(conv: Conversation): string[] {
+  const contactTags = Array.isArray(conv.contact?.tags) ? (conv.contact!.tags as string[]) : [];
+  const friendTagsRaw = (conv.friendship as { crmTagsPerNick?: string[] } | null | undefined)?.crmTagsPerNick;
+  const friendTags = Array.isArray(friendTagsRaw) ? friendTagsRaw : [];
+  // Dedup, Zalo-managed (🔵 prefix) lên trước
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const t of friendTags) if (t.startsWith('🔵 ') && !seen.has(t)) { seen.add(t); result.push(t); }
+  for (const t of friendTags) if (!t.startsWith('🔵 ') && !seen.has(t)) { seen.add(t); result.push(t); }
+  for (const t of contactTags) if (!seen.has(t)) { seen.add(t); result.push(t); }
+  return result;
 }
 
 // ── Conversation display ───────────────────────────────────────────────────

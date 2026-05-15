@@ -4,11 +4,13 @@
     <header class="ip-header">
       <button class="ip-close" title="Đóng" @click="$emit('close')">×</button>
       <div class="ip-avatar-wrap">
+        <!-- KHÔNG truyền :gender — gender badge ♂/♀ sẽ đè lên lead-score-badge.
+             Gender info đã hiển thị ở chat header (chip "Nam"/"Nữ" row 1)
+             + ô select Gender trong tab Hồ sơ. Không cần lặp lại ở avatar cột 4. -->
         <Avatar
           :src="props.contact?.avatarUrl"
           :name="headerFullName"
           :size="64"
-          :gender="form.gender"
           :gradient-seed="props.contact?.id || headerFullName"
           class="ip-avatar-big"
         />
@@ -310,6 +312,7 @@
         <ChatAppointments
           v-if="props.contactId"
           :contact-id="props.contactId"
+          :contact-name="headerFullName"
           :appointments="contactAppointments"
           @refresh="reloadAppointments"
         />

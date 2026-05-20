@@ -13,10 +13,9 @@ interface User {
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null);
-  const token = ref(localStorage.getItem('token') || '');
   const needsSetup = ref(false);
 
-  const isAuthenticated = computed(() => !!token.value && !!user.value);
+  const isAuthenticated = computed(() => !!user.value);
   const isOwner = computed(() => user.value?.role === 'owner');
   const isAdmin = computed(() => ['owner', 'admin'].includes(user.value?.role || ''));
 
@@ -28,16 +27,12 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function setup(data: { orgName: string; fullName: string; email: string; password: string }) {
     const res = await api.post('/setup', data);
-    token.value = res.data.token;
     user.value = res.data.user;
-    localStorage.setItem('token', res.data.token);
   }
 
   async function login(email: string, password: string) {
     const res = await api.post('/auth/login', { email, password });
-    token.value = res.data.token;
     user.value = res.data.user;
-    localStorage.setItem('token', res.data.token);
   }
 
   async function fetchProfile() {
@@ -49,17 +44,19 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  function logout() {
-    token.value = '';
+  async function logout() {
+    try {
+      await api.post('/auth/logout');
+    } catch {
+      // Ignore errors on logout
+    }
     user.value = null;
-    localStorage.removeItem('token');
   }
 
   async function init() {
-    if (token.value) {
-      await fetchProfile();
-    }
+    // Always try to fetch profile. If cookie is missing or invalid, interceptor handles it.
+    await fetchProfile();
   }
 
-  return { user, token, needsSetup, isAuthenticated, isOwner, isAdmin, checkSetup, setup, login, fetchProfile, logout, init };
+  return { user, needsSetup, isAuthenticated, isOwner, isAdmin, checkSetup, setup, login, fetchProfile, logout, init };
 });

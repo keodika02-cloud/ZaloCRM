@@ -255,11 +255,7 @@ export async function applyFriendAggregate(args: AggregateMessageInput): Promise
             orgId: conv.orgId,
             contactId: conv.contactId!,
             zaloAccountId: conv.zaloAccountId,
-            zaloUidInNick: conv.externalThreadId!,
-            // Snapshot per-identity tên + avatar Zalo của KH (chỉ set khi inbound,
-            // vì self message senderName là của chính sale chứ không phải KH).
-            zaloDisplayName: isInbound ? (args.contactZaloDisplayName || null) : null,
-            zaloAvatarUrl: isInbound ? (args.contactZaloAvatarUrl || null) : null,
+            zaloUidInNick: `unknown_${randomUUID()}`,  // unknown until friendship established
             friendshipStatus: 'none',
             hasConversation: true,
             relationshipKind: 'chatting_stranger',

@@ -17,7 +17,7 @@
     <v-list v-if="results.length" lines="two">
       <v-list-item
         v-for="user in results"
-        :key="user.userId ?? user.id"
+        :key="getUserId(user)"
         class="px-2"
       >
         <template #prepend>
@@ -37,18 +37,18 @@
         <template #append>
           <div class="d-flex flex-column align-end gap-1">
             <v-btn
-              v-if="!pendingId[user.userId ?? user.id]"
+              v-if="!pendingId[getUserId(user)]"
               size="small"
               color="primary"
               variant="tonal"
               prepend-icon="mdi-account-plus-outline"
-              @click="openMessage(user.userId ?? user.id)"
+              @click="openMessage(getUserId(user))"
             >
               Gửi lời mời
             </v-btn>
             <template v-else>
               <v-text-field
-                v-model="messageMap[user.userId ?? user.id]"
+                v-model="messageMap[getUserId(user)]"
                 placeholder="Lời nhắn (tuỳ chọn)"
                 variant="outlined"
                 density="compact"
@@ -57,8 +57,8 @@
                 class="mb-1"
               />
               <div class="d-flex gap-1">
-                <v-btn size="small" color="primary" @click="onSend(user.userId ?? user.id)">Gửi</v-btn>
-                <v-btn size="small" variant="text" @click="closeMessage(user.userId ?? user.id)">Hủy</v-btn>
+                <v-btn size="small" color="primary" @click="onSend(getUserId(user))">Gửi</v-btn>
+                <v-btn size="small" variant="text" @click="closeMessage(getUserId(user))">Hủy</v-btn>
               </div>
             </template>
           </div>
@@ -76,8 +76,17 @@
 <script setup lang="ts">
 import { ref, reactive } from 'vue';
 
+interface UserResult {
+  id?: string;
+  userId?: string;
+  avatar?: string;
+  displayName?: string;
+  name?: string;
+  phone?: string;
+}
+
 defineProps<{
-  results: any[];
+  results: UserResult[];
   loading: boolean;
 }>();
 
@@ -91,6 +100,10 @@ const searched = ref(false);
 // tracks which user rows have the message input open
 const pendingId = reactive<Record<string, boolean>>({});
 const messageMap = reactive<Record<string, string>>({});
+
+function getUserId(user: UserResult): string {
+  return user.userId ?? user.id ?? '';
+}
 
 function onSearch() {
   if (!query.value.trim()) return;

@@ -68,12 +68,11 @@ async function attemptReconnect(accountId: string): Promise<void> {
       where: { id: accountId },
       select: { sessionData: true },
     });
-    const session = account?.sessionData as ZaloCredentials | null;
-    if (!session?.imei) {
+    if (!account?.sessionData) {
       throw new ZaloOpError('No saved session for reconnect', 'SESSION_EXPIRED', 401);
     }
     logger.info(`[zalo-ops:${accountId}] Auto-reconnecting after session expiry...`);
-    await zaloPool.reconnect(accountId, session);
+    await zaloPool.autoReconnect(accountId);
   })();
 
   reconnecting.set(accountId, attempt);

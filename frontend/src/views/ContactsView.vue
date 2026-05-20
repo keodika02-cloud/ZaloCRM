@@ -1050,21 +1050,9 @@ onMounted(() => {
 .smax-contacts-page {
   padding: 13px 18px 13px;
   background: var(--smax-grey-100);
-  /* Flex column: page-header + toolbar + stats + scroll-wrap (flex: 1).
-     Height fixed = viewport - topnav → scroll-wrap takes remaining vertical
-     space + own scroll (V + H) → toolbar/stats stay above khi scroll bảng. */
   display: flex;
   flex-direction: column;
-  height: calc(100vh - var(--smax-topnav-h, 52px));
-  overflow: hidden;
-}
-.smax-contacts-page > .page-header,
-.smax-contacts-page > .toolbar,
-.smax-contacts-page > .toolbar-secondary,
-.smax-contacts-page > .advanced-panel,
-.smax-contacts-page > .stats-row,
-.smax-contacts-page > .pagination {
-  flex-shrink: 0;
+  min-height: 100vh;
 }
 
 /* ════════ Page header ════════ */

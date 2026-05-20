@@ -19,9 +19,9 @@ import { sendNativeVideo } from '../../shared/video-processor.js';
 import { uploadBuffer, type UploadResult } from '../../shared/storage/minio-client.js';
 import { logger } from '../../shared/utils/logger.js';
 
-const IMAGE_MAX = 100 * 1024 * 1024;
-const VIDEO_MAX = 500 * 1024 * 1024;
-const FILE_MAX = 1024 * 1024 * 1024;
+const IMAGE_MAX = 10 * 1024 * 1024; // 10 MB
+const VIDEO_MAX = 50 * 1024 * 1024; // 50 MB
+const FILE_MAX = 50 * 1024 * 1024;  // 50 MB
 const ALLOWED_IMAGE = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 const ALLOWED_VIDEO = ['video/mp4', 'video/quicktime', 'video/webm'];
 const ALLOWED_FILE = [
@@ -83,7 +83,9 @@ export async function chatAttachmentRoutes(app: FastifyInstance) {
       let caption = '';
       const files: ParsedFile[] = [];
       try {
-        for await (const part of request.parts()) {
+        // Enforce max file size at the parser level to prevent OOM DOS
+        const parts = request.parts({ limits: { fileSize: Math.max(IMAGE_MAX, VIDEO_MAX, FILE_MAX) } });
+        for await (const part of parts) {
           if (part.type === 'field' && part.fieldname === 'caption') {
             caption = String(part.value ?? '');
           } else if (part.type === 'file') {

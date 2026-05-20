@@ -291,9 +291,11 @@ watch(searchQuery, () => {
 .smax-chat-grid {
   display: grid;
   grid-template-columns: 290px 380px 1fr 350px;
-  height: calc(100vh - var(--smax-topnav-h, 52px));
+  height: 100vh;
   overflow: hidden;
   background: var(--smax-grey-100);
+  margin-top: calc(-1 * var(--smax-topnav-h, 52px));
+  padding-top: var(--smax-topnav-h, 52px);
 }
 
 /* Khi info-panel đóng, col 4 collapse → grid auto-adjust */

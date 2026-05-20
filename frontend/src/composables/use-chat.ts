@@ -144,6 +144,132 @@ export function useChat() {
   const aiConfig = ref<AiConfig>({ provider: 'anthropic', model: 'claude-sonnet-4-6', maxDaily: 500, enabled: true });
   let socket: Socket | null = null;
   let convSyncTimer: ReturnType<typeof setTimeout> | null = null;
+  let notificationAudio: HTMLAudioElement | null = null;
+  let audioContext: AudioContext | null = null;
+  let audioUnlocked = false;
+  let userGestureListenerAttached = false;
+  let notificationVisibilityListenerAttached = false;
+  let hasNewMessageIndicator = false;
+  const notificationSoundUrl = '/sounds/notifcation.wav';
+  const originalDocumentTitle = typeof document !== 'undefined' ? document.title : 'ZaloCRM';
+
+  function isBrowser() {
+    return typeof window !== 'undefined' && typeof document !== 'undefined';
+  }
+
+  function createAudioContext() {
+    if (!isBrowser()) return null;
+    const AudioContextCtor = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextCtor) return null;
+    try {
+      const ctx = new AudioContextCtor();
+      if (ctx.state === 'suspended') {
+        void ctx.resume().catch((err) => {
+          console.debug('[notification] audio context resume failed', err);
+        });
+      }
+      return ctx;
+    } catch (err) {
+      console.debug('[notification] createAudioContext failed', err);
+      return null;
+    }
+  }
+
+  function attachNotificationUnlockListeners() {
+    if (!isBrowser() || userGestureListenerAttached) return;
+
+    const unlock = () => {
+      audioUnlocked = true;
+      if (!notificationAudio) initNotificationAudio();
+      if (!audioContext) audioContext = createAudioContext();
+      if (notificationAudio) {
+        notificationAudio.muted = true;
+        void notificationAudio.play().then(() => {
+          notificationAudio?.pause();
+          if (notificationAudio) {
+            notificationAudio.currentTime = 0;
+            notificationAudio.muted = false;
+          }
+          console.debug('[notification] audio unlocked on user gesture');
+        }).catch((err) => {
+          console.debug('[notification] unlock play failed', err);
+          if (notificationAudio) notificationAudio.muted = false;
+        });
+      }
+    };
+
+    document.addEventListener('click', unlock, { once: true, capture: true });
+    document.addEventListener('keydown', unlock, { once: true, capture: true });
+    userGestureListenerAttached = true;
+  }
+
+  function initNotificationAudio() {
+    if (typeof Audio === 'undefined') return;
+    const audio = new Audio(notificationSoundUrl);
+    audio.preload = 'auto';
+    audio.muted = false;
+    audio.volume = 0.75;
+    audio.addEventListener('canplaythrough', () => {
+      console.debug('[notification] audio ready', notificationSoundUrl);
+    });
+    audio.addEventListener('error', (event) => {
+      console.debug('[notification] audio load error', event);
+    });
+    audio.load();
+    notificationAudio = audio;
+  }
+
+  function playNotificationSound() {
+    if (!isBrowser()) return;
+    if (!notificationAudio) initNotificationAudio();
+    if (!audioContext) audioContext = createAudioContext();
+
+    const tryPlayAudio = () => {
+      if (notificationAudio) {
+        try {
+          notificationAudio.currentTime = 0;
+          void notificationAudio.play().then(() => {
+            console.debug('[notification] played sound', notificationSoundUrl);
+          }).catch((err) => {
+            console.debug('[notification] sound play blocked or failed', err);
+            playFallbackBeep();
+          });
+          return;
+        } catch (err) {
+          console.debug('[notification] sound play exception', err);
+        }
+      }
+      playFallbackBeep();
+    };
+
+    if (!audioUnlocked) {
+      console.debug('[notification] audio not unlocked yet, attaching gesture listener');
+      attachNotificationUnlockListeners();
+    }
+
+    tryPlayAudio();
+  }
+
+  function playFallbackBeep() {
+    if (!isBrowser()) return;
+    try {
+      if (!audioContext) audioContext = createAudioContext();
+      if (!audioContext) return;
+      const osc = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      osc.type = 'triangle';
+      osc.frequency.value = 1000;
+      gain.gain.value = 0.12;
+      osc.connect(gain);
+      gain.connect(audioContext.destination);
+      osc.start();
+      setTimeout(() => {
+        osc.stop();
+      }, 180);
+    } catch (err) {
+      console.debug('[notification] fallback beep failed', err);
+    }
+  }
 
   // Debounce server-side reconcile: chỉ fetch full list sau 3s không có tin mới
   // → tránh lag khi nhận burst (chat group nhiều người gửi liên tiếp).
@@ -153,6 +279,32 @@ export function useChat() {
       void fetchConversations();
       convSyncTimer = null;
     }, 3000);
+  }
+
+  function getTotalUnreadCount() {
+    return conversations.value.reduce((sum, conv) => sum + (conv.unreadCount ?? 0), 0);
+  }
+
+  function updateDocumentTitleBadge() {
+    if (typeof document === 'undefined') return;
+    const unreadCount = getTotalUnreadCount();
+    if (unreadCount > 0) {
+      document.title = `(${unreadCount}) ${originalDocumentTitle}`;
+      return;
+    }
+    if (hasNewMessageIndicator) {
+      document.title = `• ${originalDocumentTitle}`;
+      return;
+    }
+    document.title = originalDocumentTitle;
+  }
+
+  function handleVisibilityChange() {
+    if (typeof document === 'undefined') return;
+    if (!document.hidden) {
+      hasNewMessageIndicator = false;
+      updateDocumentTitleBadge();
+    }
   }
 
   const selectedConv = computed(() =>
@@ -434,6 +586,12 @@ export function useChat() {
 
   function initSocket() {
     socket = io({ transports: ['websocket', 'polling'] });
+    initNotificationAudio();
+    attachNotificationUnlockListeners();
+    if (typeof document !== 'undefined' && !notificationVisibilityListenerAttached) {
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+      notificationVisibilityListenerAttached = true;
+    }
 
     socket.on('chat:message', (data: { message: Message; conversationId: string }) => {
       if (data.conversationId === selectedConvId.value) {
@@ -474,6 +632,17 @@ export function useChat() {
           conversations.value.unshift(conv);
         }
       }
+
+      if (data.message.senderType !== 'self') {
+        const isHidden = typeof document !== 'undefined' && document.hidden;
+        const isDifferentConv = data.conversationId !== selectedConvId.value;
+        if (isHidden || isDifferentConv) {
+          hasNewMessageIndicator = true;
+          updateDocumentTitleBadge();
+        }
+        playNotificationSound();
+      }
+
       // Debounce sync from server: chỉ fetch sau 3s im lặng → reconcile state
       // (tránh chạy mỗi tin → lag list khi nhận burst).
       scheduleConvSync();
@@ -528,6 +697,11 @@ export function useChat() {
   function destroySocket() {
     socket?.disconnect();
     socket = null;
+    if (typeof document !== 'undefined' && notificationVisibilityListenerAttached) {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      notificationVisibilityListenerAttached = false;
+      document.title = originalDocumentTitle;
+    }
   }
 
   return {

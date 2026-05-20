@@ -7,6 +7,7 @@ import type { FastifyInstance } from 'fastify';
 import { authMiddleware } from '../auth/auth-middleware.js';
 import { prisma } from '../../shared/database/prisma-client.js';
 import { logger } from '../../shared/utils/logger.js';
+import { encryptSession, decryptSession } from '../../shared/utils/crypto.js';
 
 /** Shape matching openzca StoredCredentials */
 interface StoredCredentials {
@@ -57,11 +58,16 @@ export async function credentialRoutes(app: FastifyInstance) {
       return reply.status(404).send({ error: 'No credentials saved for this account' });
     }
 
+    const decryptedSession = decryptSession(account.sessionData);
+    if (!decryptedSession) {
+      return reply.status(500).send({ error: 'Failed to decrypt credentials' });
+    }
+
     const filename = `zalo-credentials-${account.displayName ?? accountId}-${Date.now()}.json`;
     reply.header('Content-Type', 'application/json');
     reply.header('Content-Disposition', `attachment; filename="${filename}"`);
     logger.info(`[credential-routes] Exporting credentials for account ${accountId}`);
-    return reply.send(JSON.stringify(account.sessionData, null, 2));
+    return reply.send(JSON.stringify(decryptedSession, null, 2));
   });
 
   // POST .../credentials/import — restore credentials from uploaded JSON
@@ -95,10 +101,11 @@ export async function credentialRoutes(app: FastifyInstance) {
     }
 
     try {
+      const encryptedSession = encryptSession(body);
       await prisma.zaloAccount.update({
         where: { id: accountId },
         data: {
-          sessionData: body as any,
+          sessionData: encryptedSession as any,
           status: 'disconnected',
         },
       });

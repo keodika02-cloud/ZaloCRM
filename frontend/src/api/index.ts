@@ -4,14 +4,11 @@ import { router } from '@/router/index';
 const api = axios.create({
   baseURL: '/api/v1',
   timeout: 30000,
+  withCredentials: true,
 });
 
-// JWT interceptor
+// JWT is now handled via HttpOnly cookies, so we don't need to manually inject it.
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
   return config;
 });
 
@@ -20,7 +17,6 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('token');
       // Use Vue Router instead of hard reload to prevent redirect loops
       const currentPath = router.currentRoute.value.path;
       if (currentPath !== '/login' && currentPath !== '/setup') {

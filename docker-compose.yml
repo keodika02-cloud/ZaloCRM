@@ -1,4 +1,3 @@
-version: "3.8"
 
 services:
   app:
@@ -19,6 +18,9 @@ services:
       - S3_BUCKET=${S3_BUCKET:-zalocrm-attachments}
       - S3_ACCESS_KEY=${MINIO_ROOT_USER:-minioadmin}
       - S3_SECRET_KEY=${MINIO_ROOT_PASSWORD:-minioadmin}
+      - AI_DEFAULT_PROVIDER=${AI_DEFAULT_PROVIDER:-gemini}
+      - AI_DEFAULT_MODEL=${AI_DEFAULT_MODEL:-gemini-2.0-flash}
+      - GEMINI_AUTH_TOKEN=${GEMINI_AUTH_TOKEN}
     depends_on:
       db:
         condition: service_healthy

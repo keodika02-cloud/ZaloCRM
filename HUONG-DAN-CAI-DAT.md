@@ -1,11 +1,14 @@
 # Hướng dẫn cài đặt ZaloCRM
 
-## Bước 1: Chuẩn bị VPS
+## Bước 1: Chuẩn bị môi trường (Khuyến nghị Debian 12)
 
-Bạn cần 1 VPS (máy chủ ảo) chạy Linux. Có thể dùng:
-- DigitalOcean, Vultr, Linode, AWS, Google Cloud, hoặc VPS Việt Nam
+ZaloCRM hoạt động ổn định và build nhanh nhất trên nền tảng **Debian 12** hoặc Ubuntu 22.04. 
+*Lưu ý: Không nên chạy trực tiếp trên Windows hoặc dùng WSL trỏ ra thư mục Windows (VD: `/mnt/e/`) vì sẽ bị lỗi build cực chậm và I/O rất kém. Nếu dùng WSL, bắt buộc phải đặt code bên trong file system của Linux (VD: `~/ZaloCRM`).*
 
-**Cấu hình tối thiểu:** 1 vCPU, 1 GB RAM, 10 GB ổ cứng
+Bạn cần 1 VPS (máy chủ ảo) hoặc VM chạy Linux. Có thể dùng:
+- DigitalOcean, Hetzner, Vultr, Linode, AWS, hoặc VPS Việt Nam
+
+**Cấu hình tối thiểu:** 1 vCPU, 1 GB RAM, 10 GB ổ cứng (Khuyên dùng 2-4 vCPU, 4GB RAM)
 
 ### Cài Docker (nếu chưa có)
 
@@ -239,3 +242,48 @@ SELECT email, role FROM users WHERE role = 'owner';
 ```
 
 Liên hệ developer để reset mật khẩu qua database.
+
+---
+
+## Cài đặt Bare-Metal với PM2 (Không dùng Docker - Khuyên dùng cho Linux/WSL)
+
+Nếu bạn muốn thời gian build cực nhanh và hiệu năng I/O tốt nhất, bạn có thể chạy trực tiếp trên Debian/Ubuntu thông qua bộ script tự động đã được cấu hình sẵn:
+
+### 1. Cài đặt lần đầu (Khởi tạo Database & Môi trường)
+
+Chạy script cài đặt tự động. Script này sẽ tự động tải Node.js, PostgreSQL, Redis, MinIO, cấu hình file `.env` sang `localhost`, tạo cơ sở dữ liệu và build toàn bộ dự án.
+
+```bash
+cd ~/ZaloCRM
+chmod +x setup-pm2.sh
+./setup-pm2.sh
+```
+
+*(Lưu ý: Chỉ chạy file này 1 lần duy nhất lúc cài đặt hoặc khi bạn lỡ xóa sạch cơ sở dữ liệu và muốn làm lại từ đầu).*
+
+### 2. Sử dụng hàng ngày (Khởi động / Tắt máy)
+Sau khi đã chạy Setup thành công, bạn có thể quản lý server dễ dàng thông qua bộ công cụ lệnh tiện ích.
+
+Để sử dụng các công cụ này, hãy di chuyển vào thư mục dự án trên Linux:
+```bash
+cd ~/ZaloCRM
+```
+
+Danh sách các lệnh hỗ trợ:
+
+**1. Mở / Đóng hệ thống (Không mất dữ liệu)**
+* `./quickstart.sh` - Bật toàn bộ Backend, Frontend, và Storage lên nền. Web sẽ khả dụng ở cổng `5173`.
+* `./quickend.sh` - Tắt toàn bộ hệ thống ngay lập tức (Chỉ tắt Server, mọi dữ liệu vẫn còn nguyên).
+
+**2. Cập nhật mã nguồn**
+* `./update.sh` - Tự động kéo mã nguồn mới nhất từ Github, cài đặt thư viện và khởi động lại toàn bộ hệ thống.
+
+**3. Xem logs hệ thống**
+* `./logs.sh` - Theo dõi trực tiếp toàn bộ dữ liệu Console (lỗi, truy cập, v.v) từ hệ thống.
+
+**4. Sao lưu & Khôi phục dữ liệu**
+* `./backup.sh` - Tạo file sao lưu dự phòng cơ sở dữ liệu lưu vào thư mục `backups/`.
+* `./restore.sh backups/ten_file.sql` - Phục hồi hệ thống về trạng thái của file sao lưu.
+
+**5. Factory Reset (CẢNH BÁO: XÓA SẠCH DỮ LIỆU)**
+* `./cleardata.sh` - Tắt hệ thống, xóa hoàn toàn Database, Cache và File đính kèm. Khôi phục máy chủ về trạng thái ban đầu tinh khôi chưa cài đặt. (Sau khi dùng, bạn phải chạy `./setup-pm2.sh` để tái tạo hệ thống).

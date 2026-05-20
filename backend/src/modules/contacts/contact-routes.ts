@@ -45,8 +45,7 @@ export async function contactRoutes(app: FastifyInstance): Promise<void> {
         dateTo = '',
       } = request.query as QueryParams;
 
-      const where: any = { orgId: user.orgId, mergedInto: null };
-      // Model B: mỗi Contact tự nó là "KH Cha"; con = Friend rows. KHÔNG filter parentContactId.
+      const where: any = { orgId: user.orgId, mergedInto: null, deletedAt: null };
       if (source) where.source = source;
       if (status) where.status = status;
       if (statusId) where.statusId = statusId;
@@ -220,7 +219,7 @@ export async function contactRoutes(app: FastifyInstance): Promise<void> {
 
       const pipeline = await prisma.contact.groupBy({
         by: ['status'],
-        where: { orgId, status: { not: null }, mergedInto: null },
+        where: { orgId, status: { not: null }, mergedInto: null, deletedAt: null },
         _count: true,
       });
 
@@ -230,7 +229,7 @@ export async function contactRoutes(app: FastifyInstance): Promise<void> {
 
       await Promise.all(
         statuses.map(async (st) => {
-          const where: any = { orgId, status: st ?? null, mergedInto: null };
+          const where: any = { orgId, status: st ?? null, mergedInto: null, deletedAt: null };
           const contacts = await prisma.contact.findMany({
             where,
             select: {
@@ -272,7 +271,7 @@ export async function contactRoutes(app: FastifyInstance): Promise<void> {
       const { id } = request.params as { id: string };
 
       const contact = await prisma.contact.findFirst({
-        where: { id, orgId: user.orgId },
+        where: { id, orgId: user.orgId, deletedAt: null },
         include: {
           assignedUser: { select: { id: true, fullName: true, email: true } },
           appointments: { orderBy: { appointmentDate: 'desc' }, take: 10 },
@@ -350,12 +349,8 @@ export async function contactRoutes(app: FastifyInstance): Promise<void> {
       const body = request.body as Record<string, any>;
 
       const existing = await prisma.contact.findFirst({
-        where: { id, orgId: user.orgId },
-        select: {
-          id: true, status: true, fullName: true, phone: true, source: true,
-          assignedUserId: true, crmName: true, email: true, gender: true,
-          birthDate: true, leadScore: true, addressLine: true, occupation: true,
-        },
+        where: { id, orgId: user.orgId, deletedAt: null },
+        select: { id: true, status: true, fullName: true, phone: true, source: true, assignedUserId: true },
       });
       if (!existing) return reply.status(404).send({ error: 'Contact not found' });
 
@@ -464,7 +459,7 @@ export async function contactRoutes(app: FastifyInstance): Promise<void> {
 
       if (!Array.isArray(tags)) return reply.status(400).send({ error: 'tags must be an array' });
 
-      const existing = await prisma.contact.findFirst({ where: { id, orgId: user.orgId }, select: { id: true, tags: true } });
+      const existing = await prisma.contact.findFirst({ where: { id, orgId: user.orgId, deletedAt: null }, select: { id: true } });
       if (!existing) return reply.status(404).send({ error: 'Contact not found' });
 
       const oldTags = Array.isArray(existing.tags) ? (existing.tags as string[]) : [];
@@ -507,10 +502,13 @@ export async function contactRoutes(app: FastifyInstance): Promise<void> {
       const user = request.user!;
       const { id } = request.params as { id: string };
 
-      const existing = await prisma.contact.findFirst({ where: { id, orgId: user.orgId }, select: { id: true } });
+      const existing = await prisma.contact.findFirst({ where: { id, orgId: user.orgId, deletedAt: null }, select: { id: true } });
       if (!existing) return reply.status(404).send({ error: 'Contact not found' });
 
-      await prisma.contact.delete({ where: { id } });
+      await prisma.contact.update({
+        where: { id },
+        data: { deletedAt: new Date() }
+      });
       return { success: true };
     } catch (err) {
       logger.error('[contacts] Delete error:', err);

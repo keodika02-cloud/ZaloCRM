@@ -145,6 +145,7 @@ export async function applyFriendTransition(args: {
     const data: any = {
       friendshipStatus: newFriendshipStatus,
       relationshipKind: toKind,
+      zaloUidInNick,
     };
     if (newFriendshipStatus === 'accepted') data.becameFriendAt = now;
     if (newFriendshipStatus === 'removed' || newFriendshipStatus === 'blocked') data.removedAt = now;

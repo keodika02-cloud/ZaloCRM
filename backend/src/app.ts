@@ -9,6 +9,7 @@ import fastifyJwt from '@fastify/jwt';
 import rateLimit from '@fastify/rate-limit';
 import fastifyStatic from '@fastify/static';
 import fastifyMultipart from '@fastify/multipart';
+import fastifyCookie from '@fastify/cookie';
 import { Server } from 'socket.io';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -76,8 +77,16 @@ async function bootstrap() {
     credentials: true,
   });
 
+  await app.register(fastifyCookie, {
+    secret: config.jwtSecret, // For signed cookies
+  });
+
   await app.register(fastifyJwt, {
     secret: config.jwtSecret,
+    cookie: {
+      cookieName: 'token',
+      signed: false,
+    },
   });
 
   await app.register(rateLimit, {
@@ -227,20 +236,13 @@ async function bootstrap() {
   try {
     const accounts = await prisma.zaloAccount.findMany({
       where: { sessionData: { not: Prisma.JsonNull } },
-      select: { id: true, sessionData: true },
+      select: { id: true },
     });
     logger.info(`Attempting reconnect for ${accounts.length} Zalo account(s)`);
     for (const account of accounts) {
-      const session = account.sessionData as {
-        cookie: any;
-        imei: string;
-        userAgent: string;
-      } | null;
-      if (session?.imei) {
-        zaloPool.reconnect(account.id, session).catch((err) => {
-          logger.warn(`Auto-reconnect failed for account ${account.id}:`, err);
-        });
-      }
+      zaloPool.autoReconnect(account.id).catch((err) => {
+        logger.warn(`Auto-reconnect failed for account ${account.id}:`, err);
+      });
     }
   } catch (err) {
     logger.error('Failed to load accounts for reconnect:', err);

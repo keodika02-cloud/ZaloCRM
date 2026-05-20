@@ -558,26 +558,27 @@ export async function chatRoutes(app: FastifyInstance) {
         logger.warn(`[chat] sendMessage không trả msgId — shape=${JSON.stringify(sendResult).slice(0, 200)}`);
       }
 
-      const message = await prisma.message.create({
-        data: {
-          id: randomUUID(),
-          conversationId: id,
-          zaloMsgId: zaloMsgId || null,
-          senderType: 'self',
-          senderUid: conversation.zaloAccount.zaloUid || '',
-          senderName: 'Staff',
-          content,
-          contentType: 'text',
-          quote: quote ?? undefined,
-          sentAt: new Date(),
-          repliedByUserId: user.id,
-        },
-      });
-
-      await prisma.conversation.update({
-        where: { id },
-        data: { lastMessageAt: new Date(), isReplied: true, unreadCount: 0 },
-      });
+      const [message] = await prisma.$transaction([
+        prisma.message.create({
+          data: {
+            id: randomUUID(),
+            conversationId: id,
+            zaloMsgId: zaloMsgId || null,
+            senderType: 'self',
+            senderUid: conversation.zaloAccount.zaloUid || '',
+            senderName: 'Staff',
+            content,
+            contentType: 'text',
+            quote: quote ?? undefined,
+            sentAt: new Date(),
+            repliedByUserId: user.id,
+          },
+        }),
+        prisma.conversation.update({
+          where: { id },
+          data: { lastMessageAt: new Date(), isReplied: true, unreadCount: 0 },
+        })
+      ]);
 
       const aggInput = {
         conversationId: id,

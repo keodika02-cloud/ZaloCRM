@@ -17,6 +17,7 @@ import { backfillIfEmpty } from './zalo-history-backfill.js';
 import { readFile } from 'fs/promises';
 import { imageSize } from 'image-size';
 import { withProxy } from './proxy-util.js';
+import { encryptSession, decryptSession } from '../../shared/utils/crypto.js';
 
 // zca-js has no reliable ESM type exports — load via CJS interop
 const require = createRequire(import.meta.url);
@@ -259,8 +260,9 @@ class ZaloAccountPool {
 
   // Persist session credentials to DB
   private saveCredentials(accountId: string, credentials: ZaloCredentials): void {
+    const encrypted = encryptSession(credentials);
     prisma.zaloAccount
-      .update({ where: { id: accountId }, data: { sessionData: credentials as any } })
+      .update({ where: { id: accountId }, data: { sessionData: encrypted as any } })
       .catch((err) => logger.error(`[zalo:${accountId}] saveCredentials error:`, err));
   }
 
@@ -281,7 +283,7 @@ class ZaloAccountPool {
   }
 
   // Auto-reconnect using saved session from DB
-  private async autoReconnect(accountId: string): Promise<void> {
+  async autoReconnect(accountId: string): Promise<void> {
     const inst = this.instances.get(accountId);
     // Skip if already reconnected or manually disconnected
     if (inst?.status === 'connected') return;
@@ -291,10 +293,12 @@ class ZaloAccountPool {
         where: { id: accountId },
         select: { sessionData: true, proxyUrl: true },
       });
-      const session = account?.sessionData as ZaloCredentials | null;
-      if (session?.imei) {
+      const session = account?.sessionData as any;
+      const credentials = decryptSession(session) as ZaloCredentials | null;
+      
+      if (credentials?.imei) {
         logger.info(`[zalo:${accountId}] Auto-reconnecting...`);
-        await this.reconnect(accountId, session, account?.proxyUrl);
+        await this.reconnect(accountId, credentials, account?.proxyUrl);
       } else {
         logger.warn(`[zalo:${accountId}] No saved session, cannot auto-reconnect`);
         this.io?.emit('zalo:reconnect-failed', { accountId, error: 'No saved session' });

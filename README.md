@@ -75,11 +75,11 @@ Hệ thống quản lý tập trung nhiều tài khoản Zalo cá nhân trên 1 
 
 | Thành phần | Tối thiểu | Khuyến nghị |
 |-----------|----------|------------|
-| CPU | 2 vCPU | 4 vCPU |
-| RAM | 2 GB | 4 GB |
-| Ổ cứng | 20 GB | 40 GB SSD |
-| Hệ điều hành | Ubuntu 20.04+ | Ubuntu 22.04 LTS |
-| Phần mềm | Docker + Docker Compose | Docker 24+ |
+| CPU | 1 vCPU | 2-4 vCPU |
+| RAM | 1 GB | 4 GB |
+| Ổ cứng | 10 GB | 20 GB SSD |
+| Hệ điều hành | Debian 12 / Ubuntu 22.04 | Debian 12 (ưu tiên hiệu suất) |
+| Môi trường | Docker / PM2 | Docker 24+ hoặc PM2 (Bare Metal) |
 
 > v3.0 cần thêm MinIO container nên ổ cứng và RAM tăng so với v2.1.
 
@@ -228,7 +228,7 @@ docker exec zalo-crm-db psql -U crmuser -d zalocrm < backup-v2.1-<datetime>.sql
 | Cache / Event Buffer | Redis 7 |
 | Zalo | zca-js 2.x |
 | Mobile | PWA (Service Worker + Web App Manifest) |
-| Triển khai | Docker Compose |
+| Triển khai | Docker Compose / PM2 (Native) |
 
 ## API & Webhook
 

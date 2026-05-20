@@ -8,7 +8,6 @@ import { generateWithOpenaiCompat } from './providers/openai-compat.js';
 import { buildReplyDraftPrompt } from './prompts/reply-draft.js';
 import { buildSummaryPrompt } from './prompts/summary.js';
 import { buildSentimentPrompt } from './prompts/sentiment.js';
-import { logger } from '../../shared/utils/logger.js';
 import { parseAppointmentRuleBased } from './appointment-fallback-parser.js';
 
 export type AiTaskType = 'reply_draft' | 'summary' | 'sentiment';

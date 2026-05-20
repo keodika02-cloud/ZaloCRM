@@ -350,7 +350,6 @@ export async function contactRoutes(app: FastifyInstance): Promise<void> {
 
       const existing = await prisma.contact.findFirst({
         where: { id, orgId: user.orgId, deletedAt: null },
-        select: { id: true, status: true, fullName: true, phone: true, source: true, assignedUserId: true },
       });
       if (!existing) return reply.status(404).send({ error: 'Contact not found' });
 
@@ -459,7 +458,7 @@ export async function contactRoutes(app: FastifyInstance): Promise<void> {
 
       if (!Array.isArray(tags)) return reply.status(400).send({ error: 'tags must be an array' });
 
-      const existing = await prisma.contact.findFirst({ where: { id, orgId: user.orgId, deletedAt: null }, select: { id: true } });
+      const existing = await prisma.contact.findFirst({ where: { id, orgId: user.orgId, deletedAt: null } });
       if (!existing) return reply.status(404).send({ error: 'Contact not found' });
 
       const oldTags = Array.isArray(existing.tags) ? (existing.tags as string[]) : [];

@@ -102,18 +102,12 @@ export async function zaloRoutes(app: FastifyInstance): Promise<void> {
         return reply.status(404).send({ error: 'Account not found' });
       }
 
-      const session = account.sessionData as {
-        cookie: any;
-        imei: string;
-        userAgent: string;
-      } | null;
-
-      if (!session?.imei) {
+      if (!account.sessionData) {
         return reply.status(400).send({ error: 'No saved session — please login with QR first' });
       }
 
       // Fire-and-forget — result emitted via Socket.IO
-      zaloPool.reconnect(id, session, account.proxyUrl).catch(() => {});
+      zaloPool.autoReconnect(id).catch(() => {});
 
       return { message: 'Reconnect initiated' };
     },

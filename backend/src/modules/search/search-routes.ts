@@ -26,8 +26,8 @@ export async function searchRoutes(app: FastifyInstance) {
             { notes: { contains: searchTerm, mode: 'insensitive' } },
           ],
         },
-        select: { id: true, fullName: true, phone: true, diseaseCode: true, diseaseName: true },
-        take: 10,
+        select: { id: true, fullName: true, phone: true, avatarUrl: true },
+        take: 500,
       }),
       prisma.message.findMany({
         where: {
@@ -42,7 +42,7 @@ export async function searchRoutes(app: FastifyInstance) {
           conversation: { select: { id: true, contact: { select: { fullName: true } } } },
         },
         orderBy: { sentAt: 'desc' },
-        take: 10,
+        take: 500,
       }),
       prisma.appointment.findMany({
         where: {
@@ -59,7 +59,7 @@ export async function searchRoutes(app: FastifyInstance) {
           notes: true,
           contact: { select: { fullName: true } },
         },
-        take: 10,
+        take: 500,
       }),
     ]);
 

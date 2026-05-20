@@ -2,6 +2,7 @@ import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
 import vuetify from 'vite-plugin-vuetify';
 import { fileURLToPath } from 'node:url';
+import path from 'node:path';
 
 export default defineConfig({
   plugins: [
@@ -14,6 +15,9 @@ export default defineConfig({
     },
   },
   server: {
+    fs: {
+      allow: [path.resolve(__dirname, '..')],
+    },
     port: 5173,
     proxy: {
       '/api': 'http://localhost:3000',
@@ -22,5 +26,22 @@ export default defineConfig({
         ws: true,
       },
     },
+    middlewareMode: false,
+    hmr: {
+      protocol: 'ws',
+      host: 'localhost',
+      port: 5173,
+    },
+  },
+  css: {
+    devSourcemap: true,
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: undefined,
+      },
+    },
+    sourcemap: false,
   },
 });

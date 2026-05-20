@@ -114,18 +114,42 @@ export const router = createRouter({
 router.beforeEach(async (to, _from, next) => {
   const authStore = useAuthStore();
 
-  // Skip guard for setup and login pages
-  if (to.name === 'Setup' || to.name === 'Login') {
+  // If navigating to Setup, verify it actually needs setup
+  if (to.name === 'Setup') {
+    try {
+      const needsSetup = await authStore.checkSetup();
+      if (!needsSetup) {
+        return next('/login'); // Setup already complete, go to login
+      }
+      return next();
+    } catch {
+      return next();
+    }
+  }
+
+  // If navigating to Login, check if already authenticated or needs setup
+  if (to.name === 'Login') {
+    if (!authStore.isAuthenticated) {
+      await authStore.init();
+    }
+    if (authStore.isAuthenticated) {
+      return next('/'); // Already logged in, go to dashboard
+    }
+    
+    // Check if we actually need setup instead of login
+    try {
+      const needsSetup = await authStore.checkSetup();
+      if (needsSetup) {
+        return next('/setup');
+      }
+    } catch {}
+    
     return next();
   }
 
   // Check auth for protected routes
   if (to.meta.requiresAuth) {
-    if (!authStore.token) {
-      return next('/login');
-    }
-    // Fetch profile if not loaded yet
-    if (!authStore.user) {
+    if (!authStore.isAuthenticated) {
       await authStore.init();
       if (!authStore.isAuthenticated) {
         return next('/login');

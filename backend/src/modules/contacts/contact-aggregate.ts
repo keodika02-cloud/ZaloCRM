@@ -208,7 +208,7 @@ export async function applyFriendAggregate(args: AggregateMessageInput): Promise
             orgId: conv.orgId,
             contactId: conv.contactId!,
             zaloAccountId: conv.zaloAccountId,
-            zaloUidInNick: '',  // unknown until friendship established
+            zaloUidInNick: `unknown_${randomUUID()}`,  // unknown until friendship established
             friendshipStatus: 'none',
             hasConversation: true,
             relationshipKind: 'chatting_stranger',

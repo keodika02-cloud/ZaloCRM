@@ -71,14 +71,55 @@ export async function login(email: string, password: string): Promise<JwtPayload
     throw err;
   }
 
+  if (user.lockedUntil && user.lockedUntil > new Date()) {
+    const err = new Error('Account locked due to too many failed attempts. Try again later.') as Error & { statusCode: number };
+    err.statusCode = 429;
+    throw err;
+  }
+
   const valid = await bcrypt.compare(password, user.passwordHash);
   if (!valid) {
+    const attempts = user.failedLoginAttempts + 1;
+    let lockedUntil = user.lockedUntil;
+    if (attempts >= 5) {
+      lockedUntil = new Date(Date.now() + 15 * 60 * 1000); // Lock for 15 minutes
+    }
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { failedLoginAttempts: attempts, lockedUntil },
+    });
+
     const err = new Error('Invalid email or password') as Error & { statusCode: number };
     err.statusCode = 401;
     throw err;
   }
 
+  // Reset failed attempts on success
+  if (user.failedLoginAttempts > 0) {
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { failedLoginAttempts: 0, lockedUntil: null },
+    });
+  }
+
   return { id: user.id, email: user.email, role: user.role, orgId: user.orgId };
+}
+
+// Support for password recovery
+export async function getRecoveryUser(email: string) {
+  const user = await prisma.user.findUnique({
+    where: { email: email.toLowerCase().trim() },
+    select: { id: true, email: true }
+  });
+  return user;
+}
+
+export async function resetPassword(userId: string, newPassword: string) {
+  const passwordHash = await bcrypt.hash(newPassword, 12);
+  await prisma.user.update({
+    where: { id: userId },
+    data: { passwordHash, failedLoginAttempts: 0, lockedUntil: null }
+  });
 }
 
 // Return safe user profile (no password hash)

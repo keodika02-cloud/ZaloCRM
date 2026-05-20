@@ -7,6 +7,7 @@ import { generateWithOpenaiCompat } from './providers/openai-compat.js';
 import { buildReplyDraftPrompt } from './prompts/reply-draft.js';
 import { buildSummaryPrompt } from './prompts/summary.js';
 import { buildSentimentPrompt } from './prompts/sentiment.js';
+import { logger } from '../../shared/utils/logger.js';
 
 export type AiTaskType = 'reply_draft' | 'summary' | 'sentiment';
 
@@ -152,8 +153,22 @@ export async function generateAiOutput(input: { orgId: string; conversationId: s
   });
   if (!withinQuota) throw new Error('AI daily quota exceeded');
 
-  const apiKey = await getProviderApiKey(input.orgId, currentConfig.provider);
-  if (!apiKey) throw new Error('AI provider key is not configured');
+  // Resolve the effective provider: use the DB-stored one if it has a key,
+  // otherwise auto-fall-back to the first available provider that does.
+  let effectiveProvider = currentConfig.provider;
+  let apiKey = await getProviderApiKey(input.orgId, effectiveProvider);
+
+  if (!apiKey) {
+    const available = getAvailableProviders();
+    const fallback = await Promise.all(
+      available.map(async (p) => ({ id: p.id, key: await getProviderApiKey(input.orgId, p.id) }))
+    ).then((list) => list.find((p) => !!p.key));
+
+    if (!fallback) throw new Error('AI provider key is not configured — add an API key in Settings → AI');
+    effectiveProvider = fallback.id;
+    apiKey = fallback.key;
+    logger.warn(`[ai] Provider '${currentConfig.provider}' has no API key — falling back to '${effectiveProvider}'`);
+  }
 
   const contextText = buildConversationContext(conversation.messages);
   const language = detectLanguage(contextText);
@@ -171,7 +186,11 @@ export async function generateAiOutput(input: { orgId: string; conversationId: s
       ? buildSummaryPrompt(language)
       : buildSentimentPrompt(language);
 
-  const raw = await generateText(currentConfig.provider, apiKey, currentConfig.model, system, userPrompt);
+  const effectiveModel = effectiveProvider === currentConfig.provider
+    ? currentConfig.model
+    : (getProviderConfig(effectiveProvider)?.models[0]?.value ?? currentConfig.model);
+
+  const raw = await generateText(effectiveProvider, apiKey, effectiveModel, system, userPrompt);
 
   if (input.type === 'sentiment') {
     let parsed: SentimentResult;

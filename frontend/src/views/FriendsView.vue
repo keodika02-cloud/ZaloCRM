@@ -508,7 +508,9 @@ onMounted(async () => {
 .smax-friends-page {
   padding: 13px 18px 26px;
   background: var(--smax-grey-100);
-  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
 }
 
 .page-header h1 {

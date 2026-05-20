@@ -191,7 +191,7 @@ function logout() {
   display: flex; align-items: center;
   padding: 0 13px; gap: 4px;
   flex-shrink: 0;
-  position: sticky; top: 0; z-index: 100;
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
 }
 
 .logo {
@@ -288,8 +288,9 @@ function logout() {
 
 .smax-main {
   background: var(--smax-grey-100);
+  margin-top: var(--smax-topnav-h);
 }
-.smax-main :deep(.v-main__wrap) { min-height: calc(100vh - var(--smax-topnav-h)); }
+.smax-main :deep(.v-main__wrap) { min-height: 100vh; }
 
 /* Vuetify menus rendered from v-menu inherit theme automatically.
    Force light surface in case parent has legacy-dark applied. */

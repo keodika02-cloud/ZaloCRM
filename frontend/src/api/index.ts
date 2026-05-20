@@ -17,10 +17,20 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Use Vue Router instead of hard reload to prevent redirect loops
-      const currentPath = router.currentRoute.value.path;
-      if (currentPath !== '/login' && currentPath !== '/setup') {
-        router.replace('/login');
+      const url = error.config?.url;
+      const isAuthEndpoint = url && (
+        url.endsWith('/profile') || 
+        url.endsWith('/auth/login') || 
+        url.endsWith('/auth/logout') ||
+        url.endsWith('/setup/status')
+      );
+
+      if (!isAuthEndpoint) {
+        // Use Vue Router instead of hard reload to prevent redirect loops
+        const currentPath = router.currentRoute.value.path;
+        if (currentPath !== '/login' && currentPath !== '/setup') {
+          router.replace('/login');
+        }
       }
     }
     return Promise.reject(error);

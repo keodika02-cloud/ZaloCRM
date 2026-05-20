@@ -65,14 +65,7 @@
         </v-menu>
       </nav>
 
-      <!-- Flexible spacer pushes everything after it to the right edge. -->
-      <div class="topnav-spacer" />
-
-      <!--
-        ATTRIBUTION BANNER — moved into DashboardView per copyright holder
-        (locnt@locnguyendata.com). Rendering still required by Apache 2.0 §4(d);
-        see src/views/DashboardView.vue and src/composables/use-attribution.ts.
-      -->
+      <div class="spacer" />
 
       <!-- Global search trigger -->
       <GlobalSearch class="topnav-search" />
@@ -120,6 +113,7 @@ import { useRouter } from 'vue-router';
 import NotificationBell from '@/components/NotificationBell.vue';
 import GlobalSearch from '@/components/GlobalSearch.vue';
 import ToastContainer from '@/components/ui/ToastContainer.vue';
+
 const theme = useTheme();
 const route = useRoute();
 const authStore = useAuthStore();
@@ -204,16 +198,20 @@ function logout() {
 
 .logo {
   width: 35px; height: 35px;
-  background: white; border-radius: 7px;
+  background: white; color: var(--smax-primary);
+  font-weight: 700; border-radius: 7px;
   display: flex; align-items: center; justify-content: center;
   margin-right: 4px;
+  font-size: 16px;
   text-decoration: none;
   overflow: hidden;
-  padding: 2px;
 }
+
 .logo img {
-  width: 100%; height: 100%;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
+  padding: 3px;
 }
 
 .workspace {
@@ -238,8 +236,10 @@ function logout() {
 .nav-tabs {
   display: flex; align-items: center; gap: 2px;
   flex-wrap: nowrap;
-  flex-shrink: 0; /* never compress — menu must stay visible */
+  overflow-x: auto;
+  scrollbar-width: none;
 }
+.nav-tabs::-webkit-scrollbar { display: none; }
 .nav-tab {
   display: inline-flex; align-items: center; gap: 5px;
   padding: 9px 13px; border-radius: 7px;
@@ -250,78 +250,15 @@ function logout() {
   white-space: nowrap;
   text-decoration: none;
 }
-
-/* Compact nav progressively as viewport shrinks so all tabs stay visible */
-@media (max-width: 1500px) {
-  .nav-tab { padding: 9px 9px; gap: 4px; font-size: 12.5px; }
-}
-@media (max-width: 1280px) {
-  .nav-tab { padding: 8px 7px; font-size: 12px; }
-  .nav-tab .ic { font-size: 13px; }
-  .workspace { padding: 6px 9px; margin-right: 8px; font-size: 12px; }
-}
-@media (max-width: 1100px) {
-  .nav-tab { padding: 7px 6px; gap: 3px; }
-  .nav-tab .ic { display: none; } /* drop emoji icons, keep labels */
-  .workspace span:nth-of-type(2) { display: none; } /* workspace name → only logo */
-}
 .nav-tab .ic { font-size: 14px; line-height: 1; }
 .nav-tab .caret { font-size: 10px; opacity: 0.7; margin-left: 2px; }
 .nav-tab:hover { background: rgba(255,255,255,0.06); color: white; }
 .nav-tab.active { background: rgba(255,255,255,0.12); color: white; font-weight: 500; }
 
-.topnav-spacer { flex: 1; min-width: 0; }
-
-.contact-marquee {
-  flex: 0 0 320px;
-  margin-right: 12px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  overflow: hidden;
-  background: linear-gradient(90deg, rgba(0,242,255,0.12), rgba(0,119,182,0.12));
-  border: 1px solid rgba(0,242,255,0.30);
-  border-radius: 6px;
-  text-decoration: none;
-  color: #00F2FF;
-  font-size: 12.5px;
-  font-weight: 500;
-  cursor: pointer;
-  position: relative;
-}
-.contact-marquee:hover {
-  background: linear-gradient(90deg, rgba(0,242,255,0.20), rgba(0,119,182,0.20));
-  border-color: rgba(0,242,255,0.50);
-}
-.marquee-track {
-  display: inline-block;
-  white-space: nowrap;
-  animation: marquee-scroll 32s linear infinite;
-  will-change: transform;
-}
-.contact-marquee:hover .marquee-track {
-  animation-play-state: paused;
-}
-@keyframes marquee-scroll {
-  0%   { transform: translateX(0); }
-  100% { transform: translateX(-50%); }
-}
-@media (max-width: 1280px) {
-  .contact-marquee { display: none; }
-}
+.spacer { flex: 1; }
 
 .topnav-search {
   max-width: 240px;
-  flex-shrink: 1;
-}
-@media (max-width: 1500px) {
-  .topnav-search { max-width: 180px; }
-}
-@media (max-width: 1280px) {
-  .topnav-search { max-width: 140px; }
-}
-@media (max-width: 1100px) {
-  .topnav-search { display: none; } /* prioritize menu over inline search */
 }
 .topnav-search :deep(.v-field) {
   background: rgba(255,255,255,0.06) !important;

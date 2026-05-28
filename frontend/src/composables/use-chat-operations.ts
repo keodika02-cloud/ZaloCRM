@@ -2,6 +2,7 @@ import { ref } from 'vue';
 import type { Socket } from 'socket.io-client';
 import { api } from '@/api/index';
 import type { Message } from '@/composables/use-chat';
+import { useAuthStore } from '@/stores/auth';
 
 // Trạng thái typing và reply/edit
 const typingUsers = ref<Map<string, { userId: string; userName: string }[]>>(new Map());
@@ -105,7 +106,10 @@ export function useChatOperations() {
       'chat:typing',
       (data: { conversationId: string; typers: { userId: string; userName: string }[] }) => {
         try {
-          typingUsers.value.set(data.conversationId, data.typers);
+          const authStore = useAuthStore();
+          const currentUserId = authStore.user?.id;
+          const filtered = data.typers.filter(t => t.userId !== currentUserId);
+          typingUsers.value.set(data.conversationId, filtered);
           // Trigger reactivity — Map mutations không tự reactive
           typingUsers.value = new Map(typingUsers.value);
         } catch (err) {

@@ -276,4 +276,71 @@ export async function chatAttachmentRoutes(app: FastifyInstance) {
       }
     },
   );
+
+  app.get(
+    '/api/v1/conversations/:id/attachments/download',
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const user = request.user!;
+      const { id } = request.params as { id: string };
+      const { url, name } = request.query as { url: string; name?: string };
+
+      const conversation = await prisma.conversation.findFirst({
+        where: { id, orgId: user.orgId },
+      });
+      if (!conversation) return reply.status(404).send({ error: 'Conversation not found' });
+
+      if (!url) {
+        return reply.status(400).send({ error: 'Missing url query parameter' });
+      }
+
+      try {
+        const parsedUrl = new URL(url);
+        const allowedDomains = ['zdn.vn', 'zaloapp.com', 'zalocontent.com', 'dlfl.vn'];
+        const isValidDomain = allowedDomains.some(domain =>
+          parsedUrl.hostname === domain || parsedUrl.hostname.endsWith('.' + domain)
+        );
+        if (!isValidDomain) {
+          return reply.status(400).send({ error: 'Invalid attachment domain' });
+        }
+      } catch (err) {
+        return reply.status(400).send({ error: 'Invalid URL format' });
+      }
+
+      try {
+        const instance = zaloPool.getInstance(conversation.zaloAccountId);
+        const cookies = instance?.api ? instance.api.getCookie().getCookieStringSync(url) : '';
+
+        const headers: Record<string, string> = {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+        };
+        if (cookies) {
+          headers['Cookie'] = cookies;
+        }
+
+        const fetchRes = await fetch(url, { headers });
+        if (!fetchRes.ok) {
+          return reply.status(fetchRes.status).send({ error: `Failed to download file from Zalo: ${fetchRes.statusText}` });
+        }
+
+        if (!fetchRes.body) {
+          return reply.status(400).send({ error: 'Empty file content' });
+        }
+
+        const contentType = fetchRes.headers.get('content-type') || 'application/octet-stream';
+        const downloadName = name || url.split('/').pop() || 'file';
+
+        const { Readable } = await import('node:stream');
+        const nodeStream = Readable.fromWeb(fetchRes.body as any);
+
+        return reply
+          .header('Content-Type', contentType)
+          .header('Content-Disposition', `attachment; filename="${encodeURIComponent(downloadName)}"`)
+          .send(nodeStream);
+      } catch (err: any) {
+        logger.error('[chat-attachment] download proxy error:', err);
+        return reply.status(500).send({ error: err?.message ?? 'attachment proxy download failed' });
+      }
+    }
+  );
 }
+

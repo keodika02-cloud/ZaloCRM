@@ -82,6 +82,7 @@
                   :items="responseTime.byUser"
                   density="compact"
                   no-data-text="Không có dữ liệu"
+                  :mobile-breakpoint="1024"
                 >
                   <template #item.avgSeconds="{ item }">
                     {{ formatTime(item.avgSeconds) }}

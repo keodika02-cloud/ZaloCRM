@@ -40,6 +40,7 @@
           :items="msgData"
           :loading="loading"
           no-data-text="Không có dữ liệu"
+          :mobile-breakpoint="1024"
         />
       </v-window-item>
       <v-window-item value="contacts">
@@ -48,6 +49,7 @@
           :items="contactData"
           :loading="loading"
           no-data-text="Không có dữ liệu"
+          :mobile-breakpoint="1024"
         />
       </v-window-item>
       <v-window-item value="appointments">
@@ -56,6 +58,7 @@
           :items="aptData"
           :loading="loading"
           no-data-text="Không có dữ liệu"
+          :mobile-breakpoint="1024"
         />
       </v-window-item>
     </v-window>

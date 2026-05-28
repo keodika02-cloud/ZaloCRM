@@ -14,7 +14,7 @@
     <v-window v-model="tab">
       <v-window-item value="rules">
         <v-card>
-          <v-data-table :headers="ruleHeaders" :items="rules" :loading="rulesLoading" no-data-text="Chưa có automation rule nào">
+          <v-data-table :headers="ruleHeaders" :items="rules" :loading="rulesLoading" no-data-text="Chưa có automation rule nào" :mobile-breakpoint="1024">
             <template #item.trigger="{ item }">
               <v-chip size="small" variant="tonal">{{ triggerLabel(item.trigger) }}</v-chip>
             </template>

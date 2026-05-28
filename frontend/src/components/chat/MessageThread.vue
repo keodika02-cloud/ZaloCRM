@@ -237,6 +237,7 @@
           <MessageBubble
             v-else
             :message="item.msg"
+            :conversation-id="conversation.id"
             :reply="item.msg.reply || null"
             :reactions="item.msg.reactions || []"
             :is-self="item.msg.senderType === 'self'"

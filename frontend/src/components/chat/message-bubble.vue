@@ -223,6 +223,7 @@ const props = defineProps<{
    *  Cho user thread: dùng conversation.contact.avatarUrl.
    *  Cho group: chờ backend expose per-sender avatar; tạm null fallback initials. */
   senderAvatarUrl?: string | null;
+  conversationId?: string;
 }>();
 
 const emit = defineEmits<{
@@ -464,7 +465,14 @@ function openVideo() {
   const p = safeParse(props.message.content);
   const url = (p?.href as string) || (p?.hdUrl as string) || (p?.normalUrl as string);
   if (typeof url === 'string' && url.startsWith('http')) {
-    window.open(url, '_blank');
+    if (url.includes('zdn.vn') || url.includes('zaloapp.com') || url.includes('zalocontent.com') || url.includes('dlfl.vn')) {
+      const convId = props.conversationId || '';
+      const name = (p?.title as string) || 'video.mp4';
+      const proxyUrl = `/api/v1/conversations/${convId}/attachments/download?url=${encodeURIComponent(url)}&name=${encodeURIComponent(name)}`;
+      window.open(proxyUrl, '_blank');
+    } else {
+      window.open(url, '_blank');
+    }
   }
 }
 
@@ -567,7 +575,14 @@ function onPickerReact(key: string) {
 }
 
 function openFile(href: string) {
-  window.open(href, '_blank');
+  if (href.startsWith('http') && (href.includes('zdn.vn') || href.includes('zaloapp.com') || href.includes('zalocontent.com') || href.includes('dlfl.vn'))) {
+    const name = getFileInfo(props.message)?.name || 'file';
+    const convId = props.conversationId || '';
+    const proxyUrl = `/api/v1/conversations/${convId}/attachments/download?url=${encodeURIComponent(href)}&name=${encodeURIComponent(name)}`;
+    window.open(proxyUrl, '_blank');
+  } else {
+    window.open(href, '_blank');
+  }
 }
 </script>
 

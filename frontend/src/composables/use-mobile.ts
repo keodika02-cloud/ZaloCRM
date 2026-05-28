@@ -1,6 +1,6 @@
 import { ref } from 'vue';
 
-const MOBILE_BREAKPOINT = 768;
+const MOBILE_BREAKPOINT = 1024;
 
 const isMobile = ref(false);
 const isOnline = ref(true);

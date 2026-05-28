@@ -71,6 +71,7 @@
       :loading="loading"
       item-value="id"
       hover
+      :mobile-breakpoint="1024"
       @click:row="onRowClick"
     >
       <!-- Source badge -->

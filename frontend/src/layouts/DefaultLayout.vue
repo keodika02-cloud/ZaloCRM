@@ -11,8 +11,8 @@
         <template #activator="{ props: act }">
           <button class="workspace" v-bind="act">
             <span class="ws-logo">{{ workspaceShort }}</span>
-            <span>{{ workspaceName }}</span>
-            <span class="opacity-50">▾</span>
+            <span class="ws-name">{{ workspaceName }}</span>
+            <span class="opacity-50 ws-caret">▾</span>
           </button>
         </template>
         <v-list density="compact" min-width="220">
@@ -30,14 +30,15 @@
           :to="tab.path"
           class="nav-tab"
           :class="{ active: isActive(tab) }"
+          :title="tab.label"
         >
-          <span class="ic">{{ tab.icon }}</span>{{ tab.label }}
+          <span class="ic">{{ tab.icon }}</span><span class="tab-label">{{ tab.label }}</span>
         </RouterLink>
 
         <v-menu open-on-hover>
           <template #activator="{ props: act }">
-            <button class="nav-tab" :class="{ active: isPathPrefix('/automation') }" v-bind="act">
-              <span class="ic">⚡</span>Automation<span class="caret">▾</span>
+            <button class="nav-tab" :class="{ active: isPathPrefix('/automation') }" v-bind="act" title="Automation">
+              <span class="ic">⚡</span><span class="tab-label">Automation</span><span class="caret">▾</span>
             </button>
           </template>
           <v-list density="compact" min-width="220">
@@ -50,8 +51,8 @@
 
         <v-menu open-on-hover>
           <template #activator="{ props: act }">
-            <button class="nav-tab" :class="{ active: isSettingsActive }" v-bind="act">
-              <span class="ic">⚙</span>Cài đặt<span class="caret">▾</span>
+            <button class="nav-tab" :class="{ active: isSettingsActive }" v-bind="act" title="Cài đặt">
+              <span class="ic">⚙</span><span class="tab-label">Cài đặt</span><span class="caret">▾</span>
             </button>
           </template>
           <v-list density="compact" min-width="220">
@@ -307,5 +308,34 @@ function logout() {
 :deep(.v-overlay__content > .v-list) {
   background: var(--smax-bg);
   color: var(--smax-text);
+}
+
+@media (max-width: 1400px) {
+  .workspace .ws-name,
+  .workspace .ws-caret {
+    display: none;
+  }
+  .workspace {
+    margin-right: 8px;
+    padding: 7px;
+  }
+  .nav-tab .tab-label {
+    display: none;
+  }
+  .nav-tab .caret {
+    display: none;
+  }
+  .nav-tab {
+    padding: 9px 12px;
+  }
+  .topnav-search {
+    max-width: 160px;
+  }
+}
+
+@media (max-width: 1150px) {
+  .topnav-search {
+    display: none;
+  }
 }
 </style>

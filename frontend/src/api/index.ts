@@ -3,7 +3,7 @@ import { router } from '@/router/index';
 
 const api = axios.create({
   baseURL: '/api/v1',
-  timeout: 30000,
+  timeout: 120000,
   withCredentials: true,
 });
 

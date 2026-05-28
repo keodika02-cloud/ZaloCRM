@@ -7,7 +7,7 @@
     </div>
 
     <v-card>
-      <v-data-table :headers="headers" :items="accounts" :loading="loading" no-data-text="Chưa có tài khoản Zalo nào">
+      <v-data-table :headers="headers" :items="accounts" :loading="loading" no-data-text="Chưa có tài khoản Zalo nào" :mobile-breakpoint="1024">
         <template #item.status="{ item }">
           <v-chip :color="statusColor(item.liveStatus || item.status)" size="small" variant="flat">
             {{ statusText(item.liveStatus || item.status) }}
@@ -185,7 +185,7 @@ const headers = [
 async function syncContacts(accountId: string) {
   syncing.value = accountId;
   try {
-    const res = await api.post(`/zalo-accounts/${accountId}/sync-contacts`);
+    const res = await api.post(`/zalo-accounts/${accountId}/sync-contacts`, {}, { timeout: 180000 });
     alert(`Đồng bộ thành công: ${res.data.created} mới, ${res.data.updated} cập nhật`);
   } catch (err: any) {
     alert('Đồng bộ thất bại: ' + (err.response?.data?.error || err.message));
@@ -197,7 +197,7 @@ async function syncContacts(accountId: string) {
 async function syncHistory(accountId: string) {
   syncingHistory.value = accountId;
   try {
-    const res = await api.post(`/zalo-accounts/${accountId}/sync-history`);
+    const res = await api.post(`/zalo-accounts/${accountId}/sync-history`, {}, { timeout: 300000 });
     const d = res.data;
     alert(`Đồng bộ lịch sử: ${d.friendsSynced} bạn, ${d.groupsSynced} nhóm, ${d.messagesBackfilled} tin nhắn, ${d.dmPagesRequested} trang DM${d.errors ? ` (${d.errors} lỗi)` : ''}`);
   } catch (err: any) {

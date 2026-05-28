@@ -28,7 +28,7 @@
         </v-alert>
 
         <v-card>
-          <v-data-table :headers="headers" :items="users" :loading="loading" no-data-text="Chưa có nhân viên nào">
+          <v-data-table :headers="headers" :items="users" :loading="loading" no-data-text="Chưa có nhân viên nào" :mobile-breakpoint="1024">
             <template #item.role="{ item }">
               <v-chip :color="roleColor(item.role)" size="small" variant="flat">{{ roleLabel(item.role) }}</v-chip>
             </template>

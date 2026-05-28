@@ -13,11 +13,18 @@ import fastifyCookie from '@fastify/cookie';
 import { Server } from 'socket.io';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { setGlobalDispatcher, ProxyAgent } from 'undici';
 
 import { Prisma } from '@prisma/client';
 import { config } from './config/index.js';
 import { prisma } from './shared/database/prisma-client.js';
 import { logger } from './shared/utils/logger.js';
+
+if (process.env.HTTP_PROXY) {
+  logger.info(`Setting global undici ProxyAgent to ${process.env.HTTP_PROXY}`);
+  setGlobalDispatcher(new ProxyAgent(process.env.HTTP_PROXY));
+}
+
 import { authRoutes } from './modules/auth/auth-routes.js';
 import { zaloRoutes } from './modules/zalo/zalo-routes.js';
 import { chatRoutes } from './modules/chat/chat-routes.js';
@@ -55,6 +62,14 @@ import { friendRoutes } from './modules/zalo/friend-routes.js';
 import { profileRoutes } from './modules/zalo/profile-routes.js';
 import { credentialRoutes } from './modules/zalo/credential-routes.js';
 import { brandingRoutes } from './modules/branding/branding-routes.js';
+import { crmTagRoutes } from './modules/contacts/crm-tag-routes.js';
+import { crmTagGroupRoutes } from './modules/contacts/crm-tag-group-routes.js';
+import { userPreferenceRoutes } from './modules/auth/user-preference-routes.js';
+import { timelineRoutes } from './modules/activity/timeline-routes.js';
+import { zaloLabelsRoutes, startLabelsBackgroundSync } from './modules/zalo/zalo-labels-routes.js';
+import { notesRoutes } from './modules/contacts/notes-routes.js';
+import { statusRoutes } from './modules/contacts/status-routes.js';
+import { startInteractionCron } from './modules/contacts/interaction-cron.js';
 import { eventBuffer } from './shared/event-buffer.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -165,6 +180,13 @@ async function bootstrap() {
   await app.register(profileRoutes);
   await app.register(credentialRoutes);
   await app.register(brandingRoutes);
+  await app.register(crmTagRoutes);
+  await app.register(crmTagGroupRoutes);
+  await app.register(userPreferenceRoutes);
+  await app.register(timelineRoutes);
+  await app.register(zaloLabelsRoutes);
+  await app.register(notesRoutes);
+  await app.register(statusRoutes);
 
   // Liveness/readiness probe — also checks DB connectivity
   app.get('/health', async () => {
@@ -209,6 +231,8 @@ async function bootstrap() {
     startAppointmentReminder(io);
     startZaloHealthCheck();
     startContactIntelligence();
+    startInteractionCron();
+    startLabelsBackgroundSync();
     await eventBuffer.start(io);
   } catch (err) {
     logger.error('Failed to start server:', err);

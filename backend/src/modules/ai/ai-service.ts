@@ -16,9 +16,7 @@ type MessageContext = { senderType: string; senderName: string | null; content: 
 type SentimentResult = { label: 'positive' | 'neutral' | 'negative'; confidence: number; reason: string };
 
 function detectLanguage(text: string): 'vi' | 'en' {
-  if (/[ăâđêôơưáàảãạấầẩẫậắằẳẵặéèẻẽẹếềểễệíìỉĩịóòỏõọốồổỗộớờởỡợúùủũụứừửữựýỳỷỹỵ]/i.test(text)) return 'vi';
-  const vietnameseHints = [' khách ', ' chào ', ' tư vấn ', ' báo giá ', ' sản phẩm ', ' giúp ', ' nhé ', ' không '];
-  return vietnameseHints.some((hint) => (` ${text.toLowerCase()} `).includes(hint)) ? 'vi' : 'en';
+  return 'vi';
 }
 
 function escapeXmlBoundary(text: string): string {

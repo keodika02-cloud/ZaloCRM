@@ -32,14 +32,29 @@ async function assertConversationReadAccess(request: FastifyRequest, reply: Fast
 
 function getStatusFromError(err: unknown, fallback: string) {
   const message = err instanceof Error ? err.message : fallback;
-  const status = message.includes('quota exceeded') ? 429 : message.includes('not found') ? 404 : message.includes('disabled') || message.includes('configured') ? 400 : 500;
-  return { message, status };
+  let status = 500;
+  let friendlyMessage = fallback;
+
+  if (message.includes('quota exceeded') || message.includes('429') || message.includes('quota')) {
+    status = 429;
+    friendlyMessage = 'Hạn mức sử dụng AI (quota) đã hết hoặc bị giới hạn tốc độ. Vui lòng thử lại sau.';
+  } else if (message.includes('not found')) {
+    status = 404;
+    friendlyMessage = message;
+  } else if (message.includes('disabled') || message.includes('configured')) {
+    status = 400;
+    friendlyMessage = message;
+  } else if (message.includes('503') || message.includes('Service Unavailable') || message.includes('overloaded')) {
+    status = 503;
+    friendlyMessage = 'Dịch vụ AI đang bị quá tải tạm thời (503 Service Unavailable). Vui lòng thử lại sau vài giây.';
+  }
+
+  return { message: friendlyMessage, status };
 }
 
 function sendHandledError(reply: FastifyReply, err: unknown, fallback: string) {
   const handled = getStatusFromError(err, fallback);
-  const safeMessage = handled.status === 500 ? fallback : handled.message;
-  return reply.status(handled.status).send({ error: safeMessage });
+  return reply.status(handled.status).send({ error: handled.message });
 }
 
 

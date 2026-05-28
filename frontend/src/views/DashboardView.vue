@@ -7,18 +7,6 @@
       Removing this element is a license violation unless you hold a commercial
       license from the maintainer (locnt@locnguyendata.com).
     -->
-    <a
-      v-if="attribution.enabled.value"
-      class="contact-marquee dashboard-marquee"
-      :href="attribution.href"
-      target="_blank"
-      rel="noopener"
-      :title="attribution.text"
-    >
-      <span class="marquee-track">
-        {{ attribution.text }}&nbsp;•&nbsp;{{ attribution.text }}&nbsp;•&nbsp;
-      </span>
-    </a>
 
     <h1 class="text-h4 mb-4">
       <v-icon class="mr-2" style="color: #00F2FF;">mdi-view-dashboard</v-icon>
@@ -56,10 +44,6 @@ import PipelineChart from '@/components/dashboard/PipelineChart.vue';
 import SourceChart from '@/components/dashboard/SourceChart.vue';
 import AppointmentChart from '@/components/dashboard/AppointmentChart.vue';
 import { useDashboard } from '@/composables/use-dashboard';
-// Apache 2.0 §4(d) attribution — see src/composables/use-attribution.ts + NOTICE
-import { useAttribution } from '@/composables/use-attribution';
-
-const attribution = useAttribution();
 
 const {
   kpi, messageVolume, pipeline, sources, appointments,

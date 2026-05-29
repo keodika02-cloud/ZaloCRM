@@ -186,14 +186,75 @@
         <v-divider />
         <v-card-text>
           <v-row dense>
+            <!-- Select between Existing and New Customer -->
             <v-col cols="12">
-              <v-text-field
-                v-model="createForm.contactId"
-                label="ID khách hàng"
-                hint="Nhập ID khách hàng"
-                persistent-hint
-              />
+              <v-btn-toggle
+                v-model="customerType"
+                mandatory
+                color="primary"
+                variant="outlined"
+                density="comfortable"
+                class="mb-3 w-100 d-flex"
+              >
+                <v-btn value="existing" class="flex-grow-1">Khách hàng cũ</v-btn>
+                <v-btn value="new" class="flex-grow-1">Khách hàng mới</v-btn>
+              </v-btn-toggle>
             </v-col>
+
+            <!-- Existing Customer Autocomplete -->
+            <v-col v-if="customerType === 'existing'" cols="12">
+              <v-autocomplete
+                v-model="createForm.contactId"
+                :items="contactsStore.contacts.value"
+                item-title="fullName"
+                item-value="id"
+                label="Chọn khách hàng"
+                placeholder="Tìm theo tên hoặc số điện thoại..."
+                :loading="contactsStore.loading.value"
+                v-model:search="contactSearchQuery"
+                no-data-text="Không tìm thấy khách hàng nào"
+                clearable
+                density="comfortable"
+                variant="outlined"
+              >
+                <template #item="{ props, item }">
+                  <v-list-item
+                    v-bind="props"
+                    :title="item.fullName || 'Khách hàng chưa đặt tên'"
+                    :subtitle="item.phone || 'Không có SĐT'"
+                  >
+                    <template #prepend>
+                      <v-avatar size="32" color="grey-lighten-3" class="mr-2">
+                        <v-img v-if="item.avatarUrl" :src="item.avatarUrl" />
+                        <v-icon v-else size="20">mdi-account</v-icon>
+                      </v-avatar>
+                    </template>
+                  </v-list-item>
+                </template>
+              </v-autocomplete>
+            </v-col>
+
+            <!-- New Customer Fields -->
+            <template v-else>
+              <v-col cols="12">
+                <v-text-field
+                  v-model="newCustomerPhone"
+                  label="Số điện thoại *"
+                  placeholder="Nhập số điện thoại khách hàng"
+                  density="comfortable"
+                  variant="outlined"
+                />
+              </v-col>
+              <v-col cols="12">
+                <v-text-field
+                  v-model="newCustomerName"
+                  label="Họ tên khách hàng *"
+                  placeholder="Nhập họ tên khách hàng"
+                  density="comfortable"
+                  variant="outlined"
+                />
+              </v-col>
+            </template>
             <v-col cols="12" sm="6">
               <v-text-field v-model="createForm.appointmentDate" label="Ngày hẹn" type="date" />
             </v-col>
@@ -236,8 +297,13 @@ import {
   statusLabel,
 } from '@/composables/use-appointments';
 import type { Appointment } from '@/composables/use-appointments';
+import { useContacts } from '@/composables/use-contacts';
+import { useToast } from '@/composables/use-toast';
 
 const router = useRouter();
+const toast = useToast();
+const contactsStore = useContacts();
+
 const {
   appointments, todayAppointments, upcomingAppointments,
   loading, saving, filters, sourceCounts,
@@ -247,6 +313,11 @@ const {
 
 const activeTab = ref<'today' | 'upcoming' | 'all'>('today');
 const showCreateDialog = ref(false);
+
+const customerType = ref<'existing' | 'new'>('existing');
+const newCustomerPhone = ref('');
+const newCustomerName = ref('');
+const contactSearchQuery = ref('');
 
 interface CreateForm {
   contactId: string;
@@ -262,6 +333,38 @@ const createForm = ref<CreateForm>({
   appointmentTime: '',
   type: 'follow_up',
   notes: '',
+});
+
+// Watch search query to fetch contacts dynamically
+let contactSearchTimer: ReturnType<typeof setTimeout> | null = null;
+watch(contactSearchQuery, (val) => {
+  if (val === null || val === undefined) return;
+  if (contactSearchTimer) clearTimeout(contactSearchTimer);
+  contactSearchTimer = setTimeout(() => {
+    contactsStore.filters.search = val;
+    contactsStore.pagination.page = 1;
+    contactsStore.fetchContacts();
+  }, 300);
+});
+
+// Watch showCreateDialog to reset form state and fetch initial contacts list
+watch(showCreateDialog, (val) => {
+  if (val) {
+    customerType.value = 'existing';
+    newCustomerPhone.value = '';
+    newCustomerName.value = '';
+    contactSearchQuery.value = '';
+    createForm.value = {
+      contactId: '',
+      appointmentDate: '',
+      appointmentTime: '',
+      type: 'follow_up',
+      notes: '',
+    };
+    contactsStore.filters.search = '';
+    contactsStore.pagination.page = 1;
+    contactsStore.fetchContacts();
+  }
 });
 
 const headers = [
@@ -340,16 +443,83 @@ function formatRelativeTime(iso: string): string {
 }
 
 async function onCreateSave() {
+  if (!createForm.value.appointmentDate) {
+    toast.error('Vui lòng chọn ngày hẹn');
+    return;
+  }
+
+  let finalContactId = '';
+
+  if (customerType.value === 'existing') {
+    if (!createForm.value.contactId) {
+      toast.error('Vui lòng chọn khách hàng');
+      return;
+    }
+    finalContactId = createForm.value.contactId;
+  } else {
+    // New customer
+    const phoneTrimmed = newCustomerPhone.value.trim();
+    const nameTrimmed = newCustomerName.value.trim();
+
+    if (!phoneTrimmed) {
+      toast.error('Vui lòng nhập số điện thoại');
+      return;
+    }
+    if (!nameTrimmed) {
+      toast.error('Vui lòng nhập họ tên khách hàng');
+      return;
+    }
+
+    // Check if customer already exists with this phone number to avoid duplicates
+    try {
+      contactsStore.filters.search = phoneTrimmed;
+      contactsStore.pagination.page = 1;
+      await contactsStore.fetchContacts();
+      
+      const matched = contactsStore.contacts.value.find(c => {
+        const p1 = c.phone?.replace(/[^\d]/g, '');
+        const p2 = phoneTrimmed.replace(/[^\d]/g, '');
+        return p1 && p2 && p1 === p2;
+      });
+
+      if (matched) {
+        toast.push(`SĐT ${phoneTrimmed} thuộc về KH ${matched.fullName || matched.crmName}. Tự động liên kết.`);
+        finalContactId = matched.id;
+      } else {
+        // Create new contact
+        const newContact = await contactsStore.createContact({
+          fullName: nameTrimmed,
+          phone: phoneTrimmed,
+          status: 'new',
+        });
+        if (!newContact) {
+          toast.error('Không thể tạo thông tin khách hàng mới');
+          return;
+        }
+        finalContactId = newContact.id;
+        toast.success(`Đã tạo khách hàng mới: ${nameTrimmed}`);
+      }
+    } catch (err) {
+      console.error('Failed checking or creating contact:', err);
+      toast.error('Có lỗi xảy ra khi xử lý thông tin khách hàng');
+      return;
+    }
+  }
+
   const result = await createAppointment({
-    contactId: createForm.value.contactId,
+    contactId: finalContactId,
     appointmentDate: createForm.value.appointmentDate,
     appointmentTime: createForm.value.appointmentTime,
     type: createForm.value.type,
     notes: createForm.value.notes || null,
   } as Partial<Appointment>);
+
   if (result) {
+    toast.success('Đã tạo lịch hẹn thành công');
     showCreateDialog.value = false;
     createForm.value = { contactId: '', appointmentDate: '', appointmentTime: '', type: 'follow_up', notes: '' };
+    newCustomerPhone.value = '';
+    newCustomerName.value = '';
     refreshActive();
   }
 }

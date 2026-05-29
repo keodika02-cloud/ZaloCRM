@@ -356,15 +356,22 @@ watch(searchQuery, () => {
 }
 /* < 1200: drop filter rail */
 @media (max-width: 1200px) {
-  .smax-chat-grid { grid-template-columns: 0 320px 1fr 280px; }
-  .smax-chat-grid:not(:has(.smax-info-col)) {
-    grid-template-columns: 0 320px 1fr;
+  .smax-chat-grid,
+  .smax-chat-grid:has(.filter-rail.collapsed) {
+    grid-template-columns: 320px 1fr 280px;
+  }
+  .smax-chat-grid:not(:has(.smax-info-col)),
+  .smax-chat-grid:has(.filter-rail.collapsed):not(:has(.smax-info-col)) {
+    grid-template-columns: 320px 1fr;
   }
   .smax-chat-grid > :first-child { display: none; }
 }
 /* < 1024: drop info panel too — chỉ còn conv list + thread */
 @media (max-width: 1024px) {
-  .smax-chat-grid { grid-template-columns: 320px 1fr; }
+  .smax-chat-grid,
+  .smax-chat-grid:has(.filter-rail.collapsed) {
+    grid-template-columns: 320px 1fr;
+  }
   .smax-chat-grid > :first-child,
   .smax-chat-grid > :nth-child(4) { display: none; }
 }

@@ -310,7 +310,7 @@ function logout() {
   color: var(--smax-text);
 }
 
-@media (max-width: 1400px) {
+@media (max-width: 1500px) {
   .workspace .ws-name,
   .workspace .ws-caret {
     display: none;

@@ -138,9 +138,16 @@ function onAccountsChanged(ids: string[]) {
 }
 function onRailFiltersUpdate(filters: Record<string, string>) {
   // Merge filters từ FilterRail với extraFilters hiện có (không đè filter từ ConversationList).
-  const reserved = ['unread', 'unreplied', 'unreadOnTop', 'threadType', 'groupInbox'];
+  // Xoá tất cả các filter thuộc quyền quản lý của FilterRail để tránh bị kẹt giá trị cũ khi quay lại "tất cả"
+  const railKeys = [
+    'unread', 'unreplied', 'unreadOnTop', 'threadType', 'groupInbox',
+    'statusId', 'assignedUserId', 'hasZalo', 'relationshipKindAny',
+    'scoreMin', 'scoreMax', 'tags', 'dateFrom', 'dateTo'
+  ];
   const next = { ...extraFilters.value };
-  for (const k of reserved) delete next[k];
+  for (const k of railKeys) {
+    delete next[k];
+  }
   Object.assign(next, filters);
   extraFilters.value = next;
   fetchConversations();
@@ -193,7 +200,12 @@ function onFilterAccount(id: string | null) {
   fetchConversations();
 }
 function onFiltersUpdate(params: Record<string, string>) {
-  extraFilters.value = { ...extraFilters.value, ...params };
+  // Xoá các filter thuộc quyền quản lý của ConversationList (tab, tags) trước khi gộp để tránh kẹt tag khi clear
+  const next = { ...extraFilters.value };
+  delete next.tab;
+  delete next.tags;
+  Object.assign(next, params);
+  extraFilters.value = next;
   fetchConversations();
 }
 function onConversationMoved(_id: string, _tab: string) {

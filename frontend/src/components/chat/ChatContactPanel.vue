@@ -93,6 +93,16 @@
             </div>
           </div>
 
+          <!-- Always visible: Sale phụ trách -->
+          <div class="ip-form-row">
+            <span class="ip-icon">🤵</span>
+            <span class="ip-label">Sale chăm</span>
+            <select v-model="form.assignedUserId" @change="saveContact">
+              <option :value="null">Chưa phân công</option>
+              <option v-for="u in users" :key="u.id" :value="u.id">{{ u.fullName }}</option>
+            </select>
+          </div>
+
           <!-- Expand toggle -->
           <button class="info-expand-toggle" @click="toggleInfoExpand">
             <span v-if="!infoExpanded">▾ Xem đầy đủ</span>
@@ -343,6 +353,7 @@ import type { CareStatusValue } from '@/constants/care-status';
 import { useToast } from '@/composables/use-toast';
 import { api } from '@/api';
 import CustomerTimelineSection from './CustomerTimelineSection.vue';
+import { useUsers } from '@/composables/use-users';
 
 const props = defineProps<{
   contactId: string | null;
@@ -371,6 +382,8 @@ const {
   () => props.contact,
   () => emit('saved'),
 );
+
+const { users, fetchUsers } = useUsers();
 
 // ════════ Tab state (persist sang tab khác KH khác) ════════
 const activeTab = ref<'profile' | 'relations' | 'activity'>('profile');
@@ -427,7 +440,10 @@ function onAppointmentCreated() {
 // Listen global 'appointment-created' event — fire khi MessageThread (cột 3) tạo
 // nhắc hẹn qua icon 📅 trong toolbar. Cùng pattern với zalo-labels-synced.
 function onGlobalAppointmentCreated() { onAppointmentCreated(); }
-onMounted(() => window.addEventListener('appointment-created', onGlobalAppointmentCreated));
+onMounted(() => {
+  window.addEventListener('appointment-created', onGlobalAppointmentCreated);
+  fetchUsers();
+});
 onBeforeUnmount(() => {
   clearCollapseTimer();
   window.removeEventListener('appointment-created', onGlobalAppointmentCreated);

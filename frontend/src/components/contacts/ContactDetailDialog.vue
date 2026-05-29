@@ -82,6 +82,16 @@
                 />
               </v-col>
               <v-col cols="12" sm="6">
+                <v-select
+                  v-model="form.assignedUserId"
+                  :items="users"
+                  item-title="fullName"
+                  item-value="id"
+                  label="Sale phụ trách"
+                  clearable
+                />
+              </v-col>
+              <v-col cols="12" sm="6">
                 <v-text-field
                   v-model="form.firstContactDate"
                   label="Ngày tiếp nhận"
@@ -536,6 +546,7 @@ import {
   messagePreview,
   type AccountActivityItem,
 } from '@/composables/use-contacts';
+import { useUsers } from '@/composables/use-users';
 
 const LANG_OPTIONS = [
   { text: 'Tiếng Việt', value: 'vi' },
@@ -594,6 +605,7 @@ interface FormState {
   // consent
   consentStatus: string;
   consentSource: string;
+  assignedUserId: string;
 }
 
 function emptyForm(): FormState {
@@ -624,6 +636,7 @@ function emptyForm(): FormState {
     addressLine: '',
     consentStatus: 'implicit',
     consentSource: '',
+    assignedUserId: '',
   };
 }
 
@@ -657,6 +670,13 @@ async function loadAccountActivity(contactId: string) {
     loadingActivity.value = false;
   }
 }
+
+const { users, fetchUsers } = useUsers();
+watch(() => props.modelValue, (val) => {
+  if (val) {
+    fetchUsers();
+  }
+});
 
 watch(() => props.contact, (c) => {
   if (c) {
@@ -693,6 +713,7 @@ watch(() => props.contact, (c) => {
       addressLine: c.addressLine ?? '',
       consentStatus: c.consentStatus ?? 'implicit',
       consentSource: c.consentSource ?? '',
+      assignedUserId: c.assignedUserId ?? '',
     };
     activeTab.value = 'basic';
     if (c.id) {
@@ -793,6 +814,7 @@ async function onSave() {
 
     consentStatus: form.value.consentStatus || 'implicit',
     consentSource: form.value.consentSource || null,
+    assignedUserId: form.value.assignedUserId || null,
   };
 
   let result: Contact | null;

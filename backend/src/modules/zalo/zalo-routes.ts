@@ -79,6 +79,12 @@ export async function zaloRoutes(app: FastifyInstance): Promise<void> {
         return reply.status(404).send({ error: 'Account not found' });
       }
 
+      // Transfer ownership to the user who initiates the QR login
+      await prisma.zaloAccount.update({
+        where: { id },
+        data: { ownerUserId: user.id },
+      });
+
       // Fire-and-forget — QR delivered via Socket.IO
       zaloPool.loginQR(id, account.proxyUrl).catch(() => {
         // errors are emitted via socket; no need to crash here

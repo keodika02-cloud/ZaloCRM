@@ -38,6 +38,7 @@ export function useChatContactPanel(
     firstContactDate: '',
     tags: [] as string[],
     notes: '',
+    assignedUserId: null as string | null,
   });
 
   function populateForm(c: Contact) {
@@ -61,6 +62,7 @@ export function useChatContactPanel(
       : '';
     form.tags = Array.isArray(c.tags) ? [...c.tags] : [];
     form.notes = c.notes ?? '';
+    form.assignedUserId = c.assignedUserId ?? null;
   }
 
   async function fetchContactExtras(contactId: string) {
@@ -136,6 +138,7 @@ export function useChatContactPanel(
         : null,
       tags: form.tags,
       notes: form.notes || null,
+      assignedUserId: form.assignedUserId || null,
     });
 
     saving.value = false;

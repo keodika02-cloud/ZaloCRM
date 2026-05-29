@@ -309,7 +309,7 @@ export async function contactRoutes(app: FastifyInstance): Promise<void> {
           sourceDate: body.sourceDate ? new Date(body.sourceDate) : undefined,
           status: body.status ?? 'new',
           nextAppointment: body.nextAppointment ? new Date(body.nextAppointment) : undefined,
-          assignedUserId: body.assignedUserId,
+          assignedUserId: body.assignedUserId ?? user.id,
           notes: body.notes,
           tags: body.tags ?? [],
           metadata: body.metadata ?? {},
@@ -363,11 +363,16 @@ export async function contactRoutes(app: FastifyInstance): Promise<void> {
         sourceDate: body.sourceDate ? new Date(body.sourceDate) : undefined,
         status: body.status,
         nextAppointment: body.nextAppointment ? new Date(body.nextAppointment) : undefined,
-        assignedUserId: body.assignedUserId,
         notes: body.notes,
         tags: body.tags,
         metadata: body.metadata,
       };
+
+      if (body.assignedUserId !== undefined) {
+        updateData.assignedUserId = body.assignedUserId;
+      } else if (!existing.assignedUserId) {
+        updateData.assignedUserId = user.id;
+      }
       if (body.firstContactDate !== undefined) {
         updateData.firstContactDate = body.firstContactDate ? new Date(body.firstContactDate) : null;
       }

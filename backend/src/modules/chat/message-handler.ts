@@ -75,7 +75,7 @@ export async function handleIncomingMessage(
     });
     if (!account) return null;
 
-    const contactId = await upsertContact(msg, account.orgId);
+    const contactId = await upsertContact(msg, account.orgId, account.ownerUserId);
 
     // Update lastActivity for lead scoring freshness
     if (contactId) {
@@ -255,7 +255,7 @@ export async function handleIncomingMessage(
 }
 
 // Upsert contact — handles both user and group conversations
-async function upsertContact(msg: IncomingMessage, orgId: string): Promise<string | null> {
+async function upsertContact(msg: IncomingMessage, orgId: string, ownerUserId: string): Promise<string | null> {
   // Group messages: create/update a "contact" record representing the group
   if (msg.threadType === 'group') {
     const groupUid = msg.threadId;
@@ -299,23 +299,23 @@ async function upsertContact(msg: IncomingMessage, orgId: string): Promise<strin
   //  2. By zaloUsername — Zalo handle (t_xxx) cũng toàn cục
   //  3. By zaloUid (per-account) — fallback khi global identifiers chưa resolve
   //  4. Create new contact
-  let contact: { id: string; fullName: string | null; zaloGlobalId: string | null; zaloUid: string | null } | null = null;
+  let contact: { id: string; fullName: string | null; zaloGlobalId: string | null; zaloUid: string | null; assignedUserId: string | null } | null = null;
   if (globalId) {
     contact = await prisma.contact.findFirst({
       where: { orgId, zaloGlobalId: globalId },
-      select: { id: true, fullName: true, zaloGlobalId: true, zaloUid: true },
+      select: { id: true, fullName: true, zaloGlobalId: true, zaloUid: true, assignedUserId: true },
     });
   }
   if (!contact && username) {
     contact = await prisma.contact.findFirst({
       where: { orgId, zaloUsername: username },
-      select: { id: true, fullName: true, zaloGlobalId: true, zaloUid: true },
+      select: { id: true, fullName: true, zaloGlobalId: true, zaloUid: true, assignedUserId: true },
     });
   }
   if (!contact) {
     contact = await prisma.contact.findFirst({
       where: { orgId, zaloUid: contactUid },
-      select: { id: true, fullName: true, zaloGlobalId: true, zaloUid: true },
+      select: { id: true, fullName: true, zaloGlobalId: true, zaloUid: true, assignedUserId: true },
     });
   }
 
@@ -328,14 +328,15 @@ async function upsertContact(msg: IncomingMessage, orgId: string): Promise<strin
         zaloGlobalId: globalId || null,
         zaloUsername: username || null,
         fullName: contactName || 'Unknown',
+        assignedUserId: ownerUserId, // Auto-assign to Zalo account owner on creation
       },
-      select: { id: true, fullName: true, zaloGlobalId: true, zaloUid: true },
+      select: { id: true, fullName: true, zaloGlobalId: true, zaloUid: true, assignedUserId: true },
     });
     contact = created;
     emitWebhook(orgId, 'contact.created', { contactId: contact.id, fullName: contact.fullName });
   } else {
     // Backfill globalId/username nếu vừa resolve được, hoặc cập nhật fullName từ Unknown.
-    const patch: { zaloGlobalId?: string; zaloUsername?: string; fullName?: string; zaloUid?: string } = {};
+    const patch: { zaloGlobalId?: string; zaloUsername?: string; fullName?: string; zaloUid?: string; assignedUserId?: string } = {};
     if (globalId && contact.zaloGlobalId !== globalId) patch.zaloGlobalId = globalId;
     if (username) patch.zaloUsername = username;
     // Nếu contact match qua globalId nhưng zaloUid khác (đang được nhìn từ account khác) —
@@ -344,6 +345,10 @@ async function upsertContact(msg: IncomingMessage, orgId: string): Promise<strin
     if (!contact.zaloUid && contactUid) patch.zaloUid = contactUid;
     if (contactName && contact.fullName !== contactName && contact.fullName === 'Unknown') {
       patch.fullName = contactName;
+    }
+    // Auto-assign to the Zalo Account owner if currently unassigned
+    if (!contact.assignedUserId) {
+      patch.assignedUserId = ownerUserId;
     }
     if (Object.keys(patch).length > 0) {
       await prisma.contact.update({ where: { id: contact.id }, data: patch });

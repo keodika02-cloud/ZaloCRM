@@ -558,6 +558,20 @@ export async function chatRoutes(app: FastifyInstance) {
         logger.warn(`[chat] sendMessage không trả msgId — shape=${JSON.stringify(sendResult).slice(0, 200)}`);
       }
 
+      // Auto-assign contact to the replying sale if currently unassigned
+      if (conversation.contactId) {
+        const contactObj = await prisma.contact.findUnique({
+          where: { id: conversation.contactId },
+          select: { assignedUserId: true },
+        });
+        if (contactObj && !contactObj.assignedUserId) {
+          await prisma.contact.update({
+            where: { id: conversation.contactId },
+            data: { assignedUserId: user.id },
+          });
+        }
+      }
+
       const [message] = await prisma.$transaction([
         prisma.message.create({
           data: {
@@ -689,6 +703,20 @@ export async function chatRoutes(app: FastifyInstance) {
         } else {
           content = JSON.stringify({ href: up.fileUrl || '', fileName: up.fileName, totalSize: up.totalSize });
           contentType = 'file';
+        }
+
+        // Auto-assign contact to the replying sale if currently unassigned
+        if (conversation.contactId) {
+          const contactObj = await prisma.contact.findUnique({
+            where: { id: conversation.contactId },
+            select: { assignedUserId: true },
+          });
+          if (contactObj && !contactObj.assignedUserId) {
+            await prisma.contact.update({
+              where: { id: conversation.contactId },
+              data: { assignedUserId: user.id },
+            });
+          }
         }
 
         const msg = await prisma.message.create({

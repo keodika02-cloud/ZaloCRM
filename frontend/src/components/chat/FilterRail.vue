@@ -714,9 +714,10 @@ watch(() => filters.unreadOnTop, () => { /* triggers via toggleFilter */ });
   background: white;
   top: 2px; left: 2px;
   transition: left 0.15s;
+  transform: none;
 }
 .smax-toggle-pill.on { background: var(--smax-primary); }
-.smax-toggle-pill.on::after { left: 14px; }
+.smax-toggle-pill.on::after { left: 14px; transform: none; }
 
 .clear-all-btn {
   margin: 8px 13px;

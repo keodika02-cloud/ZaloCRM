@@ -203,7 +203,7 @@ function maskProxyUrl(url: string): string {
 function isValidProxyUrl(url: string): boolean {
   try {
     const parsed = new URL(url);
-    return ['http:', 'https:'].includes(parsed.protocol) && !!parsed.hostname;
+    return ['http:', 'https:', 'socks:', 'socks4:', 'socks5:'].includes(parsed.protocol) && !!parsed.hostname;
   } catch {
     return false;
   }

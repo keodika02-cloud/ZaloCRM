@@ -45,16 +45,16 @@ async function main() {
     let updatedCount = 0;
 
     for (const contact of contacts) {
-      let ownerUserId = contact.conversations?.[0]?.zaloAccount?.ownerUserId;
+      let ownerUserId: string | null = contact.conversations?.[0]?.zaloAccount?.ownerUserId ?? null;
       
       // Fallback 1: check friends
       if (!ownerUserId) {
-        ownerUserId = contact.friends?.[0]?.zaloAccount?.ownerUserId;
+        ownerUserId = contact.friends?.[0]?.zaloAccount?.ownerUserId ?? null;
       }
       
       // Fallback 2: default owner
       if (!ownerUserId) {
-        ownerUserId = defaultOwner?.id;
+        ownerUserId = defaultOwner?.id ?? null;
       }
 
       if (ownerUserId) {

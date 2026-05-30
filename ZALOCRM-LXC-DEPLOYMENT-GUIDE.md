@@ -4,38 +4,85 @@ Tài liệu này là cẩm nang hướng dẫn từng bước thiết lập hệ
 
 ---
 
-## BƯỚC 1: Cấu hình và Chuẩn bị trên Proxmox Host (PVE CLI)
+## BƯỚC 1: Cấu hình và Chuẩn bị trên Proxmox Host
 
-Toàn bộ các lệnh ở bước này được thực hiện trên terminal của **máy chủ vật lý Proxmox** (qua SSH hoặc Web Console của PVE).
+Bạn có thể lựa chọn tạo Container thông qua **Giao diện Web UI** (Dễ làm) hoặc **Dòng lệnh CLI** (Nhanh).
 
-### 1.1 Khai báo phân vùng lưu trữ ZFS trên Proxmox (Nếu chưa làm)
-Đảm bảo phân vùng ổ cứng NVMe/SSD dùng định dạng ZFS đã được đăng ký vào Proxmox:
+---
+
+### PHƯƠNG ÁN A: Thực hiện trên Giao diện Proxmox Web UI (Khuyên dùng)
+
+#### 1. Tải bản Template Debian 12
+1. Trên cây thư mục bên trái, chọn ổ lưu trữ template của bạn (thường là **`local`**).
+2. Nhấp vào mục **`CT Templates`** (Mẫu CT).
+3. Nhấp vào nút **`Templates`** ở trên cùng.
+4. Tìm kiếm từ khóa `debian-12`, chọn `debian-12-standard...` và nhấp **`Download`**. Đợi cho đến khi quá trình tải hoàn tất.
+
+#### 2. Khởi chạy Trình tạo Container
+1. Nhấp nút **`Create CT`** (Tạo CT) ở góc trên bên phải giao diện Web UI.
+
+#### 3. Điền thông tin các Tab:
+* **Tab General (Thông tin chung)**:
+  * **Node**: Chọn node Proxmox của bạn.
+  * **CT ID**: Nhập mã số container (ví dụ: `103`, `104`...).
+  * **Hostname**: Đặt tên (ví dụ: `zalocrm-server-103`).
+  * **Password / Confirm Password**: Nhập mật khẩu cho tài khoản `root`.
+  * **Unprivileged container**: Luôn giữ **Đánh dấu chọn** (Bật chế độ container không đặc quyền để bảo mật).
+  * Nhấn *Next*.
+* **Tab Template (Mẫu)**:
+  * **Storage**: Chọn ổ lưu trữ template (ví dụ: `local`).
+  * **Template**: Chọn bản template `debian-12-standard...` vừa tải ở trên.
+  * Nhấn *Next*.
+* **Tab Root Disk (Ổ đĩa)**:
+  * **Storage**: Chọn ổ đĩa ZFS chuyên dụng của bạn (ví dụ: `zalo-crm-zfs`).
+  * **Disk size (GiB)**: Nhập dung lượng (khuyên dùng tối thiểu `8` hoặc `10` GiB).
+  * Nhấn *Next*.
+* **Tab CPU**:
+  * **Cores**: Nhập số nhân CPU mong muốn (ví dụ: `16` hoặc `8`).
+  * Nhấn *Next*.
+* **Tab Memory (Bộ nhớ)**:
+  * **Memory (MiB)**: Nhập `8192` (tương ứng với 8GB RAM).
+  * **Swap (MiB)**: Nhập `2048` (tương ứng với 2GB Swap).
+  * Nhấn *Next*.
+* **Tab Network (Mạng)**:
+  * **Name**: Đặt là `eth0`.
+  * **Bridge**: Chọn `vmbr0` (hoặc bridge kết nối LAN của bạn).
+  * **Firewall**: Đánh dấu chọn (Bật tường lửa).
+  * **IPv4**: Chọn **`Static`**.
+  * **IPv4/CIDR**: Nhập IP tĩnh của container và subnet (ví dụ: `192.168.0.221/24`).
+  * **Gateway (IPv4)**: Nhập IP Gateway của router mạng LAN (ví dụ: `192.168.0.1`).
+  * Nhấn *Next*.
+* **Tab DNS**: Để mặc định (sử dụng cấu hình của PVE host).
+* **Tab Confirm (Xác nhận)**:
+  * Kiểm tra kỹ lại các thông tin.
+  * **QUAN TRỌNG**: **KHÔNG** tích chọn vào ô *"Start after created"* (Khởi động sau khi tạo).
+  * Nhấp **`Finish`** và đợi container được tạo thành công.
+
+#### 4. Kích hoạt Nesting & Keyctl (Bắt buộc)
+1. Sau khi Container tạo xong, chọn mã số Container (ví dụ: `103`) ở cây danh mục bên trái.
+2. Điều hướng vào mục **`Options`** (Tuỳ chọn) -> chọn dòng **`Features`** (Tính năng) -> Nhấp **`Edit`** (Sửa).
+3. Đánh dấu chọn vào cả hai mục: **`Nesting`** và **`Keyctl`**.
+4. Nhấn **`OK`** để lưu cấu hình.
+5. Nhấp nút **`Start`** (Khởi động) ở góc trên bên phải để bật container.
+
+---
+
+### PHƯƠNG ÁN B: Thực hiện qua Dòng lệnh PVE CLI (Dành cho Chuyên gia)
+
+Nếu muốn tạo nhanh qua giao diện dòng lệnh SSH của PVE host:
+
+#### 1. Khai báo phân vùng ZFS (Nếu chưa làm)
 ```bash
-# Đăng ký pool zalo-crm-zfs vào hệ thống PVE storage với tên 'zalo-crm-zfs'
 pvesm add zfspool zalo-crm-zfs --pool zalo-crm-zfs --content rootdir,images
 ```
 
-### 1.2 Tải bản Template Debian 12
-Tải bản cài đặt tối giản Debian 12 về bộ nhớ đệm của Proxmox:
+#### 2. Tải bản Template Debian 12
 ```bash
 pveam update
 pveam download local debian-12-standard_12.2-1_amd64.tar.zst
 ```
 
-### 1.3 Tạo mới LXC Container bằng dòng lệnh
-Chạy lệnh sau trên PVE Host để khởi tạo tự động Container mới. 
-
-> [!IMPORTANT]
-> Thay đổi các thông số sau theo cấu hình mong muốn:
-> - `-cores 16`: Thay đổi số nhân CPU (ví dụ: `8` hoặc `16`).
-> - `-memory 8192`: Dung lượng RAM (ở đây là 8GB RAM).
-> - `-swap 2048`: Bộ nhớ Swap (ở đây là 2GB).
-> - `-storage zalo-crm-zfs`: Phân vùng lưu trữ ZFS.
-> - `-rootfs zalo-crm-zfs:8`: Dung lượng đĩa ảo (ở đây là 8GB).
-> - `ip=192.168.0.221/24`: Thay đổi thành IP tĩnh mới của container.
-> - `gw=192.168.0.1`: Địa chỉ IP Gateway của mạng LAN.
-> - `103`: Mã ID của Container mới.
-
+#### 3. Khởi tạo Container tự động
 ```bash
 pct create 103 /var/lib/vz/template/cache/debian-12-standard_12.2-1_amd64.tar.zst \
   -cores 16 \
@@ -49,16 +96,10 @@ pct create 103 /var/lib/vz/template/cache/debian-12-standard_12.2-1_amd64.tar.zs
   -unprivileged 1 \
   -features nesting=1,keyctl=1
 ```
-*Lưu ý: Các tham số `-unprivileged 1` (bảo mật) cùng `-features nesting=1,keyctl=1` là bắt buộc để các dịch vụ Docker/systemd/PostgreSQL khởi chạy ổn định bên trong container unprivileged.*
 
-### 1.4 Thiết lập mật khẩu root cho container mới
+#### 4. Đặt mật khẩu root và khởi động
 ```bash
-# Đặt mật khẩu đăng nhập cho tài khoản root trong container 103
 lxc-attach -n 103 -- passwd
-```
-
-### 1.5 Khởi động container mới
-```bash
 pct start 103
 ```
 

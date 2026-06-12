@@ -279,14 +279,23 @@ onMounted(async () => {
       selectConversation(initId);
     }
     window.addEventListener('zalo-labels-synced', onLabelsSynced);
+    window.addEventListener('notif:open-chat', onNotifOpenChat as EventListener);
   }
 });
 onUnmounted(() => {
   if (!isMobile.value) {
     destroySocket();
     window.removeEventListener('zalo-labels-synced', onLabelsSynced);
+    window.removeEventListener('notif:open-chat', onNotifOpenChat as EventListener);
   }
 });
+
+function onNotifOpenChat(e: CustomEvent<string>) {
+  if (e.detail) {
+    selectConversation(e.detail);
+    router.replace(`/chat/${e.detail}`);
+  }
+}
 
 let searchTimeout: ReturnType<typeof setTimeout>;
 watch(searchQuery, () => {

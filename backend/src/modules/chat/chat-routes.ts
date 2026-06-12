@@ -643,13 +643,15 @@ export async function chatRoutes(app: FastifyInstance) {
 
     const tmpFiles: string[] = [];
     const originalNames: string[] = []; // index-aligned with tmpFiles
+    const batchDir = path.join(os.tmpdir(), `zalocrm-${randomUUID()}`);
     try {
+      fs.mkdirSync(batchDir, { recursive: true });
       const parts = (request as unknown as { parts(): AsyncIterable<{ type: string; file: NodeJS.ReadableStream; filename: string }> }).parts();
       for await (const part of parts) {
         if (part.type === 'file' && part.file) {
           const originalName = part.filename || 'file';
-          const safeName = originalName.replace(/[^a-zA-Z0-9._-]/g, '_');
-          const tmpPath = path.join(os.tmpdir(), `zalo-upload-${randomUUID()}-${safeName}`);
+          const safeName = originalName.replace(/[^a-zA-Z0-9._\p{L}\-]/gu, '_');
+          const tmpPath = path.join(batchDir, safeName);
           await pipeline(part.file, fs.createWriteStream(tmpPath));
           tmpFiles.push(tmpPath);
           originalNames.push(originalName);
@@ -754,10 +756,11 @@ export async function chatRoutes(app: FastifyInstance) {
       logger.error('[chat] Upload image error:', err);
       return reply.status(500).send({ error: 'Upload failed', detail: String(err) });
     } finally {
-      // Cleanup tmp files
+      // Cleanup tmp files + batch dir
       for (const f of tmpFiles) {
         fs.promises.unlink(f).catch(() => { /* ignore */ });
       }
+      fs.promises.rm(batchDir, { recursive: true, force: true }).catch(() => { /* ignore */ });
     }
   });
 

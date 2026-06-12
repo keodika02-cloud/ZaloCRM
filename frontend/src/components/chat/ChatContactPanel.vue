@@ -62,10 +62,18 @@
       </button>
       <button
         class="ip-tab"
+        :class="{ active: activeTab === 'images' }"
+        @click="activeTab = 'images'"
+      >
+        <span class="ic">🖼️</span> Ảnh
+        <span v-if="imageBadgeCount" class="tab-badge">{{ imageBadgeCount }}</span>
+      </button>
+      <button
+        class="ip-tab"
         :class="{ active: activeTab === 'files' }"
         @click="activeTab = 'files'"
       >
-        <span class="ic">📁</span> Files
+        <span class="ic">📎</span> File
         <span v-if="fileBadgeCount" class="tab-badge">{{ fileBadgeCount }}</span>
       </button>
     </nav>
@@ -341,25 +349,47 @@
         </div>
       </div>
 
-      <!-- ══════ TAB 4: FILES ══════ -->
-      <div v-show="activeTab === 'files'" class="tab-pane">
+      <!-- ══════ TAB 4: ẢNH & VIDEO ══════ -->
+      <div v-show="activeTab === 'images'" class="tab-pane">
         <div v-if="convFilesLoading" class="text-center py-4">
           <v-progress-circular indeterminate size="24" width="2" color="primary" />
         </div>
-        <div v-else-if="convFiles.length === 0" class="tab-empty">
-          <p>Chưa có file/ảnh nào trong hội thoại này</p>
+        <div v-else-if="convImages.length === 0" class="tab-empty">
+          <p>Chưa có ảnh/video nào trong hội thoại này</p>
         </div>
         <div v-else class="conv-files-grid">
           <div
-            v-for="file in convFiles"
+            v-for="file in convImages"
             :key="file.id"
             class="conv-file-item"
             @click="previewConvFile(file)"
           >
             <div class="conv-file-thumb">
               <img v-if="file.contentType === 'image'" :src="convFileUrl(file, true)" class="conv-thumb-img" loading="lazy" />
-              <v-icon v-else-if="file.contentType === 'video'" size="28" color="white">mdi-play-circle-outline</v-icon>
-              <v-icon v-else-if="file.contentType === 'pdf'" size="28" color="#e53935">mdi-file-pdf-box</v-icon>
+              <v-icon v-else size="28" color="white">mdi-play-circle-outline</v-icon>
+            </div>
+            <div class="conv-file-name">{{ file.name }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════ TAB 5: FILES ══════ -->
+      <div v-show="activeTab === 'files'" class="tab-pane">
+        <div v-if="convFilesLoading" class="text-center py-4">
+          <v-progress-circular indeterminate size="24" width="2" color="primary" />
+        </div>
+        <div v-else-if="convDocuments.length === 0" class="tab-empty">
+          <p>Chưa có file tài liệu nào trong hội thoại này</p>
+        </div>
+        <div v-else class="conv-files-grid">
+          <div
+            v-for="file in convDocuments"
+            :key="file.id"
+            class="conv-file-item"
+            @click="previewConvFile(file)"
+          >
+            <div class="conv-file-thumb">
+              <v-icon v-if="file.contentType === 'pdf'" size="28" color="#e53935">mdi-file-pdf-box</v-icon>
               <v-icon v-else size="28" color="#1976d2">mdi-file-document-outline</v-icon>
             </div>
             <div class="conv-file-name">{{ file.name }}</div>
@@ -457,7 +487,7 @@ const {
 const { users, fetchUsers } = useUsers();
 
 // ════════ Tab state (persist sang tab khác KH khác) ════════
-const activeTab = ref<'profile' | 'relations' | 'activity' | 'files'>('profile');
+const activeTab = ref<'profile' | 'relations' | 'activity' | 'images' | 'files'>('profile');
 
 // Info section auto-collapse: mặc định compact (chỉ Tên + SĐT). Click tab Hồ Sơ
 // hoặc bấm "Xem đầy đủ" → expand, đếm 5s rồi tự thu gọn lại.
@@ -713,6 +743,10 @@ const convFilesLoading = ref(false);
 const convFilePreview = ref(false);
 const convPreviewItem = ref<ConvFile | null>(null);
 const fileBadgeCount = ref(0);
+const imageBadgeCount = ref(0);
+
+const convImages = computed(() => convFiles.value.filter(f => f.contentType === 'image' || f.contentType === 'video'));
+const convDocuments = computed(() => convFiles.value.filter(f => f.contentType !== 'image' && f.contentType !== 'video'));
 
 function convFileUrl(file: ConvFile, inline = false): string {
   const href = file.href;
@@ -729,7 +763,8 @@ async function fetchConvFiles() {
   try {
     const res = await api.get('/files', { params: { contactId: props.contactId, limit: '100' } });
     convFiles.value = (res.data.files || []) as ConvFile[];
-    fileBadgeCount.value = convFiles.value.length;
+    fileBadgeCount.value = convDocuments.value.length;
+    imageBadgeCount.value = convImages.value.length;
   } catch (err) {
     console.error('[panel-files] fetch error:', err);
     convFiles.value = [];
@@ -749,7 +784,7 @@ function downloadConvFile(file: ConvFile) {
 
 watch(() => props.contactId, (id) => {
   if (id) fetchConvFiles();
-  else { convFiles.value = []; fileBadgeCount.value = 0; }
+  else { convFiles.value = []; fileBadgeCount.value = 0; imageBadgeCount.value = 0; }
 }, { immediate: true });
 </script>
 

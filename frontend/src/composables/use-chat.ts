@@ -219,6 +219,46 @@ export function useChat() {
     notificationAudio = audio;
   }
 
+  async function requestNotifPermission() {
+    if (typeof window === 'undefined' || !('Notification' in window)) return;
+    if (Notification.permission === 'granted' || Notification.permission === 'denied') return;
+    await Notification.requestPermission();
+  }
+
+  function showDesktopNotification(data: { message: Message; conversationId: string }) {
+    if (typeof window === 'undefined' || !('Notification' in window)) return;
+    if (Notification.permission !== 'granted') return;
+    const sender = data.message.senderName || 'Tin nhắn mới';
+    let body = data.message.content || '';
+    if (body.startsWith('{')) {
+      try {
+        const p = JSON.parse(body);
+        if (p.name || p.fileName) body = `📎 ${p.name || p.fileName}`;
+        else if (data.message.contentType === 'image') body = '🖼️ Ảnh';
+        else if (data.message.contentType === 'video') body = '🎥 Video';
+        else if (data.message.contentType === 'sticker') body = '🎴 Sticker';
+        else if (data.message.contentType === 'voice') body = '🎤 Tin nhắn thoại';
+        else if (p.title) body = p.title;
+        else body = 'File đính kèm';
+      } catch { body = 'Tin nhắn mới'; }
+    }
+    if (body.length > 120) body = body.slice(0, 117) + '...';
+
+    const notif = new Notification(sender, {
+      body,
+      icon: '/brand/zalocrm-logo.png',
+      tag: data.conversationId, // group by conversation
+    });
+    notif.onclick = () => {
+      window.focus();
+      if (typeof window !== 'undefined') {
+        // Navigate to chat
+        window.dispatchEvent(new CustomEvent('notif:open-chat', { detail: data.conversationId }));
+      }
+      notif.close();
+    };
+  }
+
   function playNotificationSound() {
     if (!isBrowser()) return;
     if (!notificationAudio) initNotificationAudio();
@@ -588,6 +628,7 @@ export function useChat() {
     socket = io({ transports: ['websocket', 'polling'] });
     initNotificationAudio();
     attachNotificationUnlockListeners();
+    requestNotifPermission();
     if (typeof document !== 'undefined' && !notificationVisibilityListenerAttached) {
       document.addEventListener('visibilitychange', handleVisibilityChange);
       notificationVisibilityListenerAttached = true;
@@ -641,6 +682,11 @@ export function useChat() {
           updateDocumentTitleBadge();
         }
         playNotificationSound();
+
+        // Desktop notification
+        if (isHidden || isDifferentConv) {
+          showDesktopNotification(data);
+        }
       }
 
       // Debounce sync from server: chỉ fetch sau 3s im lặng → reconcile state

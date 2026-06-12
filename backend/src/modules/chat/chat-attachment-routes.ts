@@ -317,7 +317,16 @@ export async function chatAttachmentRoutes(app: FastifyInstance) {
           headers['Cookie'] = cookies;
         }
 
-        const fetchRes = await fetch(url, { headers });
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 30000);
+
+        let fetchRes: Response;
+        try {
+          fetchRes = await fetch(url, { headers, signal: controller.signal });
+        } finally {
+          clearTimeout(timeout);
+        }
+
         if (!fetchRes.ok) {
           return reply.status(fetchRes.status).send({ error: `Failed to download file from Zalo: ${fetchRes.statusText}` });
         }
@@ -337,8 +346,12 @@ export async function chatAttachmentRoutes(app: FastifyInstance) {
           .header('Content-Disposition', `${inline === '1' ? 'inline' : 'attachment'}; filename="${encodeURIComponent(downloadName)}"`)
           .send(nodeStream);
       } catch (err: any) {
+        if (err?.name === 'AbortError' || err?.cause?.name === 'AbortError') {
+          logger.warn('[chat-attachment] Download timeout from Zalo CDN (30s)');
+          return reply.status(504).send({ error: 'Gateway Timeout: Zalo CDN did not respond' });
+        }
         logger.error('[chat-attachment] download proxy error:', err);
-        return reply.status(500).send({ error: err?.message ?? 'attachment proxy download failed' });
+        return reply.status(502).send({ error: err?.message ?? 'attachment proxy download failed' });
       }
     }
   );

@@ -770,7 +770,7 @@ async function fetchConvFiles() {
   if (!props.contactId) return;
   convFilesLoading.value = true;
   try {
-    const res = await api.get('/files', { params: { contactId: props.contactId, limit: '100' } });
+    const res = await api.get('/files', { params: { contactId: props.contactId, limit: '500' } });
     convFiles.value = (res.data.files || []) as ConvFile[];
     fileBadgeCount.value = convDocuments.value.length;
     imageBadgeCount.value = convImages.value.length;

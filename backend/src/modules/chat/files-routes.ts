@@ -95,7 +95,7 @@ export async function filesRoutes(app: FastifyInstance): Promise<void> {
       const conversationId = request.query.conversationId || '';
       const contactId = request.query.contactId || '';
       const page = Math.max(1, parseInt(request.query.page || '1') || 1);
-      const limit = Math.min(100, Math.max(1, parseInt(request.query.limit || '40') || 40));
+      const limit = Math.min(500, Math.max(1, parseInt(request.query.limit || '40') || 40));
       const offset = (page - 1) * limit;
 
       // Build where clause

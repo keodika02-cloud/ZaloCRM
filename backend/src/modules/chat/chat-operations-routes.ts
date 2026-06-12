@@ -28,7 +28,7 @@ async function resolveMessageRefs(conversationId: string, messageId: string, use
       conversationId,
       conversation: { orgId: userOrgId },
     },
-    select: { id: true, zaloMsgId: true, senderUid: true, repliedByUserId: true },
+    select: { id: true, zaloMsgId: true, senderUid: true, repliedByUserId: true, conversation: { select: { zaloAccount: { select: { zaloUid: true } } } } },
   });
 
   if (!message?.zaloMsgId) return null;
@@ -36,7 +36,7 @@ async function resolveMessageRefs(conversationId: string, messageId: string, use
     messageId: message.id,
     zaloMsgId: message.zaloMsgId,
     cliMsgId: message.zaloMsgId,
-    ownerId: message.senderUid || '',
+    ownerId: message.senderUid || message.conversation?.zaloAccount?.zaloUid || '',
     repliedByUserId: message.repliedByUserId || null,
   };
 }

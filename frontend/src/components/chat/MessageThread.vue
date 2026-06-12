@@ -587,6 +587,7 @@ const showFilePreview = ref(false);
 const previewFileInfo = ref<{ name: string; href: string } | null>(null);
 
 const IMG_EXTS = new Set(['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg', 'bmp']);
+const OFFICE_EXTS = new Set(['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'odt', 'ods', 'odp']);
 
 const previewFileExt = computed(() => {
   if (!previewFileInfo.value) return '';
@@ -597,21 +598,35 @@ const isPreviewImage = computed(() => IMG_EXTS.has(previewFileExt.value));
 const previewFileUrl = computed(() => {
   if (!previewFileInfo.value) return '';
   const href = previewFileInfo.value.href;
+  const ext = previewFileExt.value;
+
+  // Office docs → Microsoft Office Viewer
+  if (OFFICE_EXTS.has(ext) && href.startsWith('http')) {
+    // Need public URL for Microsoft Viewer; Zalo CDN → proxy through backend
+    if (href.includes('zdn.vn') || href.includes('zaloapp.com') || href.includes('zalocontent.com') || href.includes('dlfl.vn')) {
+      const proxyUrl = `/api/v1/conversations/${props.conversation?.id || ''}/attachments/download?url=${encodeURIComponent(href)}&name=${encodeURIComponent(previewFileInfo.value.name)}&inline=1`;
+      return `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(window.location.origin + proxyUrl)}`;
+    }
+    // Direct public URL → use directly
+    return `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(href)}`;
+  }
+
+  // PDF / Image → inline proxy
   if (href.startsWith('http') && (href.includes('zdn.vn') || href.includes('zaloapp.com') || href.includes('zalocontent.com') || href.includes('dlfl.vn'))) {
     return `/api/v1/conversations/${props.conversation?.id || ''}/attachments/download?url=${encodeURIComponent(href)}&name=${encodeURIComponent(previewFileInfo.value.name)}&inline=1`;
   }
-  // Direct URL (MinIO etc.) — only show iframe for PDFs and images
-  if (previewFileExt.value === 'pdf' || IMG_EXTS.has(previewFileExt.value)) return href;
+  // Direct URL (MinIO etc.)
+  if (ext === 'pdf' || IMG_EXTS.has(ext)) return href;
   return '';
 });
 
 function onPreviewFile(info: { name: string; href: string }) {
   const ext = (info.name || '').split('.').pop()?.toLowerCase() || '';
-  if (IMG_EXTS.has(ext) || ext === 'pdf') {
+  if (IMG_EXTS.has(ext) || ext === 'pdf' || OFFICE_EXTS.has(ext)) {
     previewFileInfo.value = info;
     showFilePreview.value = true;
   } else {
-    // Office docs, videos — open in new tab, browser handles
+    // Other files — open in new tab, browser handles
     window.open(getFileProxyUrl(info.href, info.name, true), '_blank');
   }
 }

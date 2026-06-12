@@ -62,19 +62,11 @@
       </button>
       <button
         class="ip-tab"
-        :class="{ active: activeTab === 'images' }"
-        @click="activeTab = 'images'"
-      >
-        <span class="ic">🖼️</span> Ảnh
-        <span v-if="imageBadgeCount" class="tab-badge">{{ imageBadgeCount }}</span>
-      </button>
-      <button
-        class="ip-tab"
         :class="{ active: activeTab === 'files' }"
         @click="activeTab = 'files'"
       >
-        <span class="ic">📎</span> File
-        <span v-if="fileBadgeCount" class="tab-badge">{{ fileBadgeCount }}</span>
+        <span class="ic">📁</span> Files
+        <span v-if="(imageBadgeCount + fileBadgeCount)" class="tab-badge">{{ imageBadgeCount + fileBadgeCount }}</span>
       </button>
     </nav>
 
@@ -349,61 +341,67 @@
         </div>
       </div>
 
-      <!-- ══════ TAB 4: ẢNH & VIDEO ══════ -->
-      <div v-show="activeTab === 'images'" class="tab-pane">
-        <div v-if="convFilesLoading" class="text-center py-4">
-          <v-progress-circular indeterminate size="24" width="2" color="primary" />
-        </div>
-        <div v-else-if="convImages.length === 0" class="tab-empty">
-          <p>Chưa có ảnh/video nào trong hội thoại này</p>
-        </div>
-        <div v-else class="conv-files-grid">
-          <div
-            v-for="file in convImages"
-            :key="file.id"
-            class="conv-file-item"
-            @click="previewConvFile(file)"
-          >
-            <div class="conv-file-thumb">
-              <img v-if="file.contentType === 'image'" :src="convFileUrl(file, true)" class="conv-thumb-img" loading="lazy" />
-              <v-icon v-else size="28" color="white">mdi-play-circle-outline</v-icon>
-            </div>
-            <div class="conv-file-name">{{ file.name }}</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- ══════ TAB 5: FILES ══════ -->
+      <!-- ══════ TAB 4: FILES (sub-tabs: Ảnh | File | Link) ══════ -->
       <div v-show="activeTab === 'files'" class="tab-pane">
+        <!-- Sub-tabs -->
+        <nav class="ip-subtabs">
+          <button class="ip-subtab" :class="{ active: fileSubTab === 'images' }" @click="fileSubTab = 'images'">
+            🖼️ Ảnh <span v-if="imageBadgeCount" class="sub-badge">{{ imageBadgeCount }}</span>
+          </button>
+          <button class="ip-subtab" :class="{ active: fileSubTab === 'files' }" @click="fileSubTab = 'files'">
+            📎 File <span v-if="fileBadgeCount" class="sub-badge">{{ fileBadgeCount }}</span>
+          </button>
+          <button class="ip-subtab" :class="{ active: fileSubTab === 'links' }" @click="fileSubTab = 'links'">
+            🔗 Link
+          </button>
+        </nav>
+
         <div v-if="convFilesLoading" class="text-center py-4">
           <v-progress-circular indeterminate size="24" width="2" color="primary" />
         </div>
-        <div v-else-if="convDocuments.length === 0" class="tab-empty">
-          <p>Chưa có file tài liệu nào trong hội thoại này</p>
-        </div>
-        <div v-else class="conv-files-grid">
-          <div
-            v-for="file in convDocuments"
-            :key="file.id"
-            class="conv-file-item"
-            @click="previewConvFile(file)"
-          >
-            <div class="conv-file-thumb">
-              <v-icon v-if="file.contentType === 'pdf'" size="28" color="#e53935">mdi-file-pdf-box</v-icon>
-              <v-icon v-else size="28" color="#1976d2">mdi-file-document-outline</v-icon>
-            </div>
-            <div class="conv-file-name">{{ file.name }}</div>
-            <div class="conv-file-meta">{{ file.sizeFormatted }}</div>
-            <v-btn
-              icon size="x-small" variant="text"
-              class="conv-file-dl"
-              @click.stop="downloadConvFile(file)"
-              title="Tải xuống"
-            >
-              <v-icon size="13">mdi-download</v-icon>
-            </v-btn>
+
+        <!-- Sub-tab: Ảnh -->
+        <template v-else-if="fileSubTab === 'images'">
+          <div v-if="convImages.length === 0" class="tab-empty">
+            <p>Chưa có ảnh/video nào</p>
           </div>
-        </div>
+          <div v-else class="conv-files-grid">
+            <div v-for="file in convImages" :key="file.id" class="conv-file-item" @click="previewConvFile(file)">
+              <div class="conv-file-thumb">
+                <img v-if="file.contentType === 'image'" :src="convFileUrl(file, true)" class="conv-thumb-img" loading="lazy" />
+                <v-icon v-else size="28" color="white">mdi-play-circle-outline</v-icon>
+              </div>
+              <div class="conv-file-name">{{ file.name }}</div>
+            </div>
+          </div>
+        </template>
+
+        <!-- Sub-tab: File -->
+        <template v-else-if="fileSubTab === 'files'">
+          <div v-if="convDocuments.length === 0" class="tab-empty">
+            <p>Chưa có file tài liệu nào</p>
+          </div>
+          <div v-else class="conv-files-grid">
+            <div v-for="file in convDocuments" :key="file.id" class="conv-file-item" @click="previewConvFile(file)">
+              <div class="conv-file-thumb">
+                <v-icon v-if="file.contentType === 'pdf'" size="28" color="#e53935">mdi-file-pdf-box</v-icon>
+                <v-icon v-else size="28" color="#1976d2">mdi-file-document-outline</v-icon>
+              </div>
+              <div class="conv-file-name">{{ file.name }}</div>
+              <div class="conv-file-meta">{{ file.sizeFormatted }}</div>
+              <v-btn icon size="x-small" variant="text" class="conv-file-dl" @click.stop="downloadConvFile(file)" title="Tải xuống">
+                <v-icon size="13">mdi-download</v-icon>
+              </v-btn>
+            </div>
+          </div>
+        </template>
+
+        <!-- Sub-tab: Link -->
+        <template v-else>
+          <div class="tab-empty">
+            <p>Chưa có link nào được chia sẻ</p>
+          </div>
+        </template>
 
         <!-- File preview dialog -->
         <v-dialog v-model="convFilePreview" max-width="95vw" content-class="elevation-0">
@@ -487,7 +485,8 @@ const {
 const { users, fetchUsers } = useUsers();
 
 // ════════ Tab state (persist sang tab khác KH khác) ════════
-const activeTab = ref<'profile' | 'relations' | 'activity' | 'images' | 'files'>('profile');
+const activeTab = ref<'profile' | 'relations' | 'activity' | 'files'>('profile');
+const fileSubTab = ref<'images' | 'files' | 'links'>('images');
 
 // Info section auto-collapse: mặc định compact (chỉ Tên + SĐT). Click tab Hồ Sơ
 // hoặc bấm "Xem đầy đủ" → expand, đếm 5s rồi tự thu gọn lại.
@@ -1316,5 +1315,41 @@ watch(() => props.contactId, (id) => {
   text-align: center;
   padding: 24px;
   color: #fff;
+}
+
+/* ── Sub-tabs inside Files tab ────────────────────────────── */
+.ip-subtabs {
+  display: flex;
+  gap: 4px;
+  padding: 6px 8px;
+  background: var(--smax-grey-100, #f5f6fa);
+  border-bottom: 1px solid var(--smax-grey-200, #ebedf0);
+  margin-bottom: 8px;
+  border-radius: 6px;
+}
+.ip-subtab {
+  flex: 1;
+  background: transparent; border: none;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 12px; font-weight: 500;
+  color: var(--smax-grey-700);
+  border-radius: 5px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+  font-family: inherit;
+  transition: background 0.15s, color 0.15s;
+}
+.ip-subtab:hover { background: var(--smax-bg); color: var(--smax-primary); }
+.ip-subtab.active {
+  background: var(--smax-bg);
+  color: var(--smax-primary);
+  font-weight: 600;
+}
+.sub-badge {
+  background: var(--smax-primary);
+  color: white;
+  font-size: 10px; font-weight: 700;
+  padding: 0 5px;
+  border-radius: 8px;
 }
 </style>

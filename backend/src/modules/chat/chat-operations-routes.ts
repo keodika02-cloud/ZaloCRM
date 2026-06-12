@@ -209,10 +209,12 @@ export async function chatOperationsRoutes(app: FastifyInstance) {
     try {
       const threadType = conv.threadType === 'group' ? 1 : 0;
       // Attempt Zalo recall; if it fails, still allow local delete
-      try {
-        await zaloOps.deleteMessage(conv.zaloAccountId, refs.zaloMsgId, refs.cliMsgId, refs.ownerId, conv.externalThreadId || '', threadType, onlyMe);
-      } catch (e) {
-        logger.warn('[chat-ops] Zalo delete failed, falling back to local delete only:', e);
+      if (conv.externalThreadId && refs.ownerId) {
+        try {
+          await zaloOps.deleteMessage(conv.zaloAccountId, refs.zaloMsgId, refs.cliMsgId, refs.ownerId, conv.externalThreadId, threadType, onlyMe);
+        } catch (e) {
+          logger.warn('[chat-ops] Zalo delete failed, falling back to local delete only:', e);
+        }
       }
 
       if (!onlyMe) {
@@ -239,10 +241,12 @@ export async function chatOperationsRoutes(app: FastifyInstance) {
     try {
       const threadType = conv.threadType === 'group' ? 1 : 0;
 
-      try {
-        await zaloOps.undoMessage(conv.zaloAccountId, refs.zaloMsgId, refs.cliMsgId, refs.ownerId, conv.externalThreadId || '', threadType);
-      } catch (e) {
-        logger.warn('[chat-ops] Zalo undo/recall failed, falling back to local delete only:', e);
+      if (conv.externalThreadId && refs.ownerId) {
+        try {
+          await zaloOps.undoMessage(conv.zaloAccountId, refs.zaloMsgId, refs.cliMsgId, refs.ownerId, conv.externalThreadId, threadType);
+        } catch (e) {
+          logger.warn('[chat-ops] Zalo undo/recall failed, falling back to local delete only:', e);
+        }
       }
       await prisma.message.update({ where: { id: refs.messageId }, data: { isDeleted: true, deletedAt: new Date() } });
 

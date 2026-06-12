@@ -144,10 +144,14 @@ export async function filesRoutes(app: FastifyInstance): Promise<void> {
           if (!info.href) return null;
           const derivedType = deriveType(m.contentType!, info.name, info.href);
           const ext = extractExt(info.name);
+          // Link display name: use hostname instead of full URL
+          let displayName = info.name;
+          if (derivedType === 'link' && displayName.startsWith('http')) {
+            try { displayName = new URL(displayName).hostname.replace('www.', ''); } catch {}
+          }
           const contactName = m.conversation?.contact?.fullName || m.conversation?.contact?.crmName || m.conversation?.groupName || 'Không rõ';
 
           // Fallback name dựa theo loại + ngày gửi nếu không có tên
-          let displayName = info.name;
           if (!displayName || displayName === 'unknown') {
             const sent = m.sentAt ? new Date(m.sentAt) : new Date();
             const dd = sent.getDate().toString().padStart(2, '0');

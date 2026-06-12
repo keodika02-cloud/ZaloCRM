@@ -586,40 +586,42 @@ function closeImagePreview() { previewImageUrl.value = ''; zoomImage.value = fal
 const showFilePreview = ref(false);
 const previewFileInfo = ref<{ name: string; href: string } | null>(null);
 
-const OFFICE_EXTS = new Set(['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'odt', 'ods', 'odp']);
-const IMAGE_EXTS = new Set(['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg', 'bmp']);
+const IMG_EXTS = new Set(['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg', 'bmp']);
 
 const previewFileExt = computed(() => {
   if (!previewFileInfo.value) return '';
   return (previewFileInfo.value.name || '').split('.').pop()?.toLowerCase() || '';
 });
-const isPreviewImage = computed(() => IMAGE_EXTS.has(previewFileExt.value));
+const isPreviewImage = computed(() => IMG_EXTS.has(previewFileExt.value));
 
 const previewFileUrl = computed(() => {
   if (!previewFileInfo.value) return '';
   const href = previewFileInfo.value.href;
-  const ext = previewFileExt.value;
-  // Office docs → Google Docs Viewer
-  if (OFFICE_EXTS.has(ext) && href.startsWith('http')) {
-    // Use backend proxy for Zalo CDN, direct URL for public files
-    if (href.includes('zdn.vn') || href.includes('zaloapp.com') || href.includes('zalocontent.com') || href.includes('dlfl.vn')) {
-      const proxyUrl = `/api/v1/conversations/${props.conversation?.id || ''}/attachments/download?url=${encodeURIComponent(href)}&name=${encodeURIComponent(previewFileInfo.value.name)}&inline=1`;
-      return `https://docs.google.com/viewer?url=${encodeURIComponent(proxyUrl)}&embedded=true`;
-    }
-    return `https://docs.google.com/viewer?url=${encodeURIComponent(href)}&embedded=true`;
-  }
-  // Other files (PDF, etc.) — inline proxy
   if (href.startsWith('http') && (href.includes('zdn.vn') || href.includes('zaloapp.com') || href.includes('zalocontent.com') || href.includes('dlfl.vn'))) {
     return `/api/v1/conversations/${props.conversation?.id || ''}/attachments/download?url=${encodeURIComponent(href)}&name=${encodeURIComponent(previewFileInfo.value.name)}&inline=1`;
   }
-  // Direct URL for images and local files
-  if (ext && (IMAGE_EXTS.has(ext) || ext === 'pdf')) return href;
+  // Direct URL (MinIO etc.) — only show iframe for PDFs and images
+  if (previewFileExt.value === 'pdf' || IMG_EXTS.has(previewFileExt.value)) return href;
   return '';
 });
 
 function onPreviewFile(info: { name: string; href: string }) {
-  previewFileInfo.value = info;
-  showFilePreview.value = true;
+  const ext = (info.name || '').split('.').pop()?.toLowerCase() || '';
+  if (IMG_EXTS.has(ext) || ext === 'pdf') {
+    previewFileInfo.value = info;
+    showFilePreview.value = true;
+  } else {
+    // Office docs, videos — open in new tab, browser handles
+    window.open(getFileProxyUrl(info.href, info.name, true), '_blank');
+  }
+}
+
+function getFileProxyUrl(href: string, name: string, inline = true): string {
+  if (href.startsWith('http') && (href.includes('zdn.vn') || href.includes('zaloapp.com') || href.includes('zalocontent.com') || href.includes('dlfl.vn'))) {
+    const base = `/api/v1/conversations/${props.conversation?.id || ''}/attachments/download?url=${encodeURIComponent(href)}&name=${encodeURIComponent(name)}`;
+    return inline ? `${base}&inline=1` : base;
+  }
+  return href;
 }
 function downloadPreviewFile() {
   if (previewFileInfo.value) {

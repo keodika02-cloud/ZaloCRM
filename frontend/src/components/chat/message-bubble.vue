@@ -29,7 +29,7 @@
       >
         <!-- Deleted -->
         <div v-if="message.isDeleted" class="text-decoration-line-through font-italic" style="opacity: 0.6;">
-          {{ message.content || '(tin nhắn)' }}<span class="text-caption"> (đã thu hồi)</span>
+          {{ getDeletedPreview(message) }}<span class="text-caption"> (đã thu hồi)</span>
         </div>
 
         <template v-else>
@@ -648,6 +648,22 @@ function formatTime(d: string): string {
 
 function onPickerReact(key: string) {
   emit('toggle-reaction', key);
+}
+
+function getDeletedPreview(msg: Message): string {
+  const content = msg.content || '';
+  if (!content.startsWith('{')) return content || '(tin nhắn)';
+  switch (msg.contentType) {
+    case 'image': return '🖼️ Ảnh';
+    case 'video': return '🎥 Video';
+    case 'file': return '📎 Tệp đính kèm';
+    case 'sticker': return '🎴 Sticker';
+    case 'voice': return '🎤 Tin nhắn thoại';
+    case 'gif': return '🎞 GIF';
+    case 'link': return '🔗 Liên kết';
+    case 'location': return '📍 Vị trí';
+    default: return '(tin nhắn)';
+  }
 }
 
 function openFile(href: string) {

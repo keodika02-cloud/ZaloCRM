@@ -573,21 +573,25 @@ export async function chatRoutes(app: FastifyInstance) {
       }
 
       const [message] = await prisma.$transaction([
-        prisma.message.create({
-          data: {
-            id: randomUUID(),
-            conversationId: id,
-            zaloMsgId: zaloMsgId || null,
-            senderType: 'self',
-            senderUid: conversation.zaloAccount.zaloUid || '',
-            senderName: 'Staff',
-            content,
-            contentType: 'text',
-            quote: quote ?? undefined,
-            sentAt: new Date(),
-            repliedByUserId: user.id,
-          },
-        }),
+        zaloMsgId
+          ? prisma.message.upsert({
+              where: { conversationId_zaloMsgId: { conversationId: id, zaloMsgId } },
+              update: { content, contentType: 'text', senderType: 'self', isDeleted: false, sentAt: new Date(), repliedByUserId: user.id },
+              create: {
+                id: randomUUID(), conversationId: id, zaloMsgId, senderType: 'self',
+                senderUid: conversation.zaloAccount.zaloUid || '', senderName: 'Staff',
+                content, contentType: 'text', quote: quote ?? undefined,
+                sentAt: new Date(), repliedByUserId: user.id,
+              },
+            })
+          : prisma.message.create({
+              data: {
+                id: randomUUID(), conversationId: id, zaloMsgId: zaloMsgId || null, senderType: 'self',
+                senderUid: conversation.zaloAccount.zaloUid || '', senderName: 'Staff',
+                content, contentType: 'text', quote: quote ?? undefined,
+                sentAt: new Date(), repliedByUserId: user.id,
+              },
+            }),
         prisma.conversation.update({
           where: { id },
           data: { lastMessageAt: new Date(), isReplied: true, unreadCount: 0 },
@@ -724,20 +728,23 @@ export async function chatRoutes(app: FastifyInstance) {
           }
         }
 
-        const msg = await prisma.message.create({
-          data: {
-            id: randomUUID(),
-            conversationId: id,
-            zaloMsgId: zaloMsgId || null,
-            senderType: 'self',
-            senderUid: conversation.zaloAccount.zaloUid || '',
-            senderName: 'Staff',
-            content,
-            contentType,
-            sentAt: new Date(),
-            repliedByUserId: user.id,
-          },
-        });
+        const msg = zaloMsgId
+          ? await prisma.message.upsert({
+              where: { conversationId_zaloMsgId: { conversationId: id, zaloMsgId } },
+              update: { content, contentType, senderType: 'self', isDeleted: false, sentAt: new Date(), repliedByUserId: user.id },
+              create: {
+                id: randomUUID(), conversationId: id, zaloMsgId, senderType: 'self',
+                senderUid: conversation.zaloAccount.zaloUid || '', senderName: 'Staff',
+                content, contentType, sentAt: new Date(), repliedByUserId: user.id,
+              },
+            })
+          : await prisma.message.create({
+              data: {
+                id: randomUUID(), conversationId: id, zaloMsgId: zaloMsgId || null, senderType: 'self',
+                senderUid: conversation.zaloAccount.zaloUid || '', senderName: 'Staff',
+                content, contentType, sentAt: new Date(), repliedByUserId: user.id,
+              },
+            });
         createdMessages.push(msg);
       }
 

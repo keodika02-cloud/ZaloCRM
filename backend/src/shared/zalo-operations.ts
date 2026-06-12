@@ -278,6 +278,8 @@ async function deleteMessage(accountId: string, msgId: string, cliMsgId: string,
 }
 
 async function undoMessage(accountId: string, msgId: string, cliMsgId: string, ownerId: string, threadId: string, threadType: 0 | 1) {
+  if (!threadId) throw new ZaloOpError('Missing threadId', 'INVALID_PARAMS', 400);
+  if (!ownerId) throw new ZaloOpError('Missing ownerId', 'INVALID_PARAMS', 400);
   return exec({ accountId, category: 'chat_action', operation: 'undo' },
     (api) => api.undo(msgId, cliMsgId, ownerId, threadId, threadType));
 }

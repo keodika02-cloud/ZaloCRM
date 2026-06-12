@@ -273,15 +273,16 @@ async function sendTypingEvent(accountId: string, threadId: string, threadType: 
 }
 
 async function deleteMessage(accountId: string, msgId: string, cliMsgId: string, ownerId: string, threadId: string, threadType: 0 | 1, onlyMe: boolean) {
+  if (!threadId) throw new ZaloOpError('Missing threadId', 'INVALID_PARAMS', 400);
+  if (!ownerId) throw new ZaloOpError('Missing ownerId', 'INVALID_PARAMS', 400);
   return exec({ accountId, category: 'chat_action', operation: 'deleteMessage' },
-    (api) => api.deleteMessage(msgId, cliMsgId, ownerId, threadId, threadType, onlyMe));
+    (api) => api.deleteMessage({ threadId, type: threadType, data: { uidFrom: ownerId } }, onlyMe));
 }
 
 async function undoMessage(accountId: string, msgId: string, cliMsgId: string, ownerId: string, threadId: string, threadType: 0 | 1) {
   if (!threadId) throw new ZaloOpError('Missing threadId', 'INVALID_PARAMS', 400);
-  if (!ownerId) throw new ZaloOpError('Missing ownerId', 'INVALID_PARAMS', 400);
   return exec({ accountId, category: 'chat_action', operation: 'undo' },
-    (api) => api.undo(msgId, cliMsgId, ownerId, threadId, threadType));
+    (api) => api.undo({ msgId, cliMsgId }, threadId, threadType));
 }
 
 async function editMessage(accountId: string, msgId: string, cliMsgId: string, content: string, threadId: string, threadType: 0 | 1) {

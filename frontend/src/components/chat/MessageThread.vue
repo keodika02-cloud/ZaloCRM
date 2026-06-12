@@ -245,6 +245,7 @@
             :sender-avatar-url="resolveSenderAvatar(item.msg)"
             @contextmenu="onContextMenu($event, item.msg)"
             @preview-image="previewImageUrl = $event"
+            @preview-file="onPreviewFile($event)"
             @toggle-reaction="onToggleReaction(item.msg, $event)"
             @sender-click="onSenderClick(item.msg)"
           />
@@ -424,10 +425,45 @@
     />
 
     <!-- Image preview -->
-    <v-dialog v-model="showImagePreview" max-width="900" content-class="elevation-0">
-      <div class="text-center" @click="showImagePreview = false" style="cursor: pointer;">
-        <img :src="previewImageUrl" alt="Preview" style="max-width: 100%; max-height: 85vh; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.5);" />
-        <div class="text-caption mt-2" style="color: #aaa;">Nhấn để đóng</div>
+    <v-dialog v-model="showImagePreview" max-width="95vw" content-class="elevation-0">
+      <div class="image-preview-wrap" @click.self="closeImagePreview">
+        <v-btn v-if="imageList.length > 1" icon size="small" class="nav-btn nav-prev" variant="text" @click="prevImage">
+          <v-icon size="28">mdi-chevron-left</v-icon>
+        </v-btn>
+        <div class="image-preview-content" @click="zoomImage = !zoomImage">
+          <img
+            :src="previewImageUrl"
+            alt="Preview"
+            :class="zoomImage ? 'preview-img-zoom' : 'preview-img'"
+          />
+        </div>
+        <v-btn v-if="imageList.length > 1" icon size="small" class="nav-btn nav-next" variant="text" @click="nextImage">
+          <v-icon size="28">mdi-chevron-right</v-icon>
+        </v-btn>
+        <v-btn icon size="small" class="close-btn" variant="text" @click="closeImagePreview">
+          <v-icon size="24">mdi-close</v-icon>
+        </v-btn>
+        <div class="image-counter" v-if="imageList.length > 1">{{ imageIndex + 1 }} / {{ imageList.length }}</div>
+      </div>
+    </v-dialog>
+
+    <!-- File preview -->
+    <v-dialog v-model="showFilePreview" max-width="900" content-class="elevation-0">
+      <div class="file-preview-wrap">
+        <div class="file-preview-header">
+          <v-icon size="20" color="info" class="mr-2">mdi-file-document-outline</v-icon>
+          <span class="text-body-2 font-weight-medium">{{ previewFileInfo?.name }}</span>
+          <v-spacer />
+          <v-btn icon size="small" variant="text" @click="downloadPreviewFile">
+            <v-icon size="20">mdi-download</v-icon>
+          </v-btn>
+          <v-btn icon size="small" variant="text" @click="showFilePreview = false">
+            <v-icon size="20">mdi-close</v-icon>
+          </v-btn>
+        </div>
+        <div class="file-preview-body">
+          <iframe v-if="previewFileUrl" :src="previewFileUrl" class="preview-iframe" />
+        </div>
       </div>
     </v-dialog>
 
@@ -449,7 +485,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick, computed, onMounted } from 'vue';
+import { ref, watch, nextTick, computed, onMounted, onBeforeUnmount } from 'vue';
 import type { Conversation, Message } from '@/composables/use-chat';
 import { api } from '@/api/index';
 import AISuggestBar from '@/components/chat/AISuggestBar.vue';
@@ -512,6 +548,65 @@ const inputText = ref('');
 const messagesContainer = ref<HTMLElement | null>(null);
 const previewImageUrl = ref('');
 const showImagePreview = computed({ get: () => !!previewImageUrl.value, set: (v) => { if (!v) previewImageUrl.value = ''; } });
+const zoomImage = ref(false);
+
+// Collect all image URLs from current messages for prev/next navigation
+const imageList = computed(() => {
+  const urls: string[] = [];
+  for (const msg of props.messages) {
+    const url = getImageUrl(msg);
+    if (url) urls.push(url);
+  }
+  return urls;
+});
+const imageIndex = computed(() => imageList.value.indexOf(previewImageUrl.value));
+
+function prevImage() {
+  const idx = imageIndex.value;
+  if (idx > 0) { previewImageUrl.value = imageList.value[idx - 1]; zoomImage.value = false; }
+}
+function nextImage() {
+  const idx = imageIndex.value;
+  if (idx < imageList.value.length - 1) { previewImageUrl.value = imageList.value[idx + 1]; zoomImage.value = false; }
+}
+function closeImagePreview() { previewImageUrl.value = ''; zoomImage.value = false; }
+
+// File preview
+const showFilePreview = ref(false);
+const previewFileInfo = ref<{ name: string; href: string } | null>(null);
+const previewFileUrl = computed(() => {
+  if (!previewFileInfo.value) return '';
+  const href = previewFileInfo.value.href;
+  if (href.startsWith('http') && (href.includes('zdn.vn') || href.includes('zaloapp.com') || href.includes('zalocontent.com') || href.includes('dlfl.vn'))) {
+    return `/api/v1/conversations/${props.conversation?.id || ''}/attachments/download?url=${encodeURIComponent(href)}&name=${encodeURIComponent(previewFileInfo.value.name)}&inline=1`;
+  }
+  return href;
+});
+
+function onPreviewFile(info: { name: string; href: string }) {
+  previewFileInfo.value = info;
+  showFilePreview.value = true;
+}
+function downloadPreviewFile() {
+  if (previewFileInfo.value) {
+    const href = previewFileInfo.value.href;
+    if (href.startsWith('http') && (href.includes('zdn.vn') || href.includes('zaloapp.com') || href.includes('zalocontent.com') || href.includes('dlfl.vn'))) {
+      const proxyUrl = `/api/v1/conversations/${props.conversation?.id || ''}/attachments/download?url=${encodeURIComponent(href)}&name=${encodeURIComponent(previewFileInfo.value.name)}`;
+      window.open(proxyUrl, '_blank');
+    } else {
+      window.open(href, '_blank');
+    }
+  }
+}
+
+// Keyboard navigation for image preview
+function onKeydown(e: KeyboardEvent) {
+  if (showImagePreview.value) {
+    if (e.key === 'ArrowLeft') prevImage();
+    else if (e.key === 'ArrowRight') nextImage();
+    else if (e.key === 'Escape') closeImagePreview();
+  }
+}
 const webhookLoading = ref(false);
 
 // Context menu state
@@ -1331,6 +1426,10 @@ watch(() => props.editingMessage?.id, async (id) => {
     editorRef.value?.focus();
   }
 });
+
+// Keyboard navigation for image preview (arrow keys, escape)
+onMounted(() => { document.addEventListener('keydown', onKeydown); });
+onBeforeUnmount(() => { document.removeEventListener('keydown', onKeydown); });
 </script>
 
 <style scoped>
@@ -1890,4 +1989,102 @@ watch(() => props.editingMessage?.id, async (id) => {
 }
 .zlbl-manage:hover { background: var(--smax-grey-50); color: var(--smax-primary); }
 .manage-icon { font-size: 14px; }
+
+/* ── Image preview lightbox ──────────────────────────────────── */
+.image-preview-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+}
+.image-preview-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: zoom-in;
+  max-height: 90vh;
+}
+.preview-img {
+  max-width: 100%;
+  max-height: 85vh;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  object-fit: contain;
+  transition: transform 0.2s;
+}
+.preview-img-zoom {
+  max-width: none;
+  max-height: none;
+  width: auto;
+  height: auto;
+  transform: scale(1.8);
+  border-radius: 4px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  cursor: zoom-out;
+}
+.nav-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #fff !important;
+  background: rgba(0,0,0,0.4) !important;
+  z-index: 1;
+  border-radius: 50% !important;
+  width: 40px !important;
+  height: 40px !important;
+}
+.nav-btn:hover { background: rgba(0,0,0,0.6) !important; }
+.nav-prev { left: 8px; }
+.nav-next { right: 8px; }
+.close-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  color: #fff !important;
+  background: rgba(0,0,0,0.4) !important;
+  z-index: 1;
+  border-radius: 50% !important;
+}
+.close-btn:hover { background: rgba(0,0,0,0.6) !important; }
+.image-counter {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #fff;
+  font-size: 13px;
+  background: rgba(0,0,0,0.5);
+  padding: 2px 12px;
+  border-radius: 20px;
+}
+
+/* ── File preview dialog ─────────────────────────────────────── */
+.file-preview-wrap {
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+}
+.file-preview-header {
+  display: flex;
+  align-items: center;
+  padding: 10px 16px;
+  background: #f5f6fa;
+  border-bottom: 1px solid #e0e0e0;
+  flex-shrink: 0;
+}
+.file-preview-body {
+  flex: 1;
+  min-height: 60vh;
+  background: #525659;
+}
+.preview-iframe {
+  width: 100%;
+  height: 100%;
+  min-height: 60vh;
+  border: none;
+}
 </style>

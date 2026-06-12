@@ -282,7 +282,7 @@ export async function chatAttachmentRoutes(app: FastifyInstance) {
     async (request: FastifyRequest, reply: FastifyReply) => {
       const user = request.user!;
       const { id } = request.params as { id: string };
-      const { url, name } = request.query as { url: string; name?: string };
+      const { url, name, inline } = request.query as { url: string; name?: string; inline?: string };
 
       const conversation = await prisma.conversation.findFirst({
         where: { id, orgId: user.orgId },
@@ -334,7 +334,7 @@ export async function chatAttachmentRoutes(app: FastifyInstance) {
 
         return reply
           .header('Content-Type', contentType)
-          .header('Content-Disposition', `attachment; filename="${encodeURIComponent(downloadName)}"`)
+          .header('Content-Disposition', `${inline === '1' ? 'inline' : 'attachment'}; filename="${encodeURIComponent(downloadName)}"`)
           .send(nodeStream);
       } catch (err: any) {
         logger.error('[chat-attachment] download proxy error:', err);

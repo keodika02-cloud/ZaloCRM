@@ -67,7 +67,38 @@
 
           <!-- File/PDF -->
           <div v-else-if="getFileInfo(message)">
-            <div class="file-card">
+            <!-- Inline PDF preview -->
+            <div v-if="getFileInfo(message)!.ext === 'pdf'" class="inline-pdf-wrap">
+              <div class="inline-pdf-header">
+                <v-icon size="16" color="info" class="mr-1">mdi-file-pdf-box</v-icon>
+                <span class="text-caption">{{ getFileInfo(message)!.name }}</span>
+                <v-spacer />
+                <span class="text-caption mr-2" style="opacity: 0.6;">{{ getFileInfo(message)!.size }}</span>
+                <v-btn icon size="x-small" variant="text" @click="openFile(getFileInfo(message)!.href)" :title="'Tải xuống'">
+                  <v-icon size="14">mdi-download</v-icon>
+                </v-btn>
+              </div>
+              <iframe
+                :src="getFileProxyUrl(getFileInfo(message)!.href, getFileInfo(message)!.name, true)"
+                class="inline-pdf-frame"
+              />
+            </div>
+            <!-- Inline image preview (fallback for images not caught by getImageUrl) -->
+            <div v-else-if="INLINE_EXTENSIONS.has(getFileInfo(message)!.ext) && ['jpg','jpeg','png','webp','gif','svg','bmp'].includes(getFileInfo(message)!.ext)" class="inline-file-img-wrap">
+              <img
+                :src="getFileProxyUrl(getFileInfo(message)!.href, getFileInfo(message)!.name, true)"
+                class="chat-image"
+                @click="emit('preview-image', getFileProxyUrl(getFileInfo(message)!.href, getFileInfo(message)!.name, true))"
+              />
+              <div class="file-img-caption">
+                <span class="text-caption">{{ getFileInfo(message)!.name }} · {{ getFileInfo(message)!.size }}</span>
+                <v-btn icon size="x-small" variant="text" @click="openFile(getFileInfo(message)!.href)" :title="'Tải xuống'">
+                  <v-icon size="14">mdi-download</v-icon>
+                </v-btn>
+              </div>
+            </div>
+            <!-- File card for non-previewable files -->
+            <div v-else class="file-card" @click="emit('preview-file', getFileInfo(message)!)">
               <v-icon size="20" class="mr-2" color="info">mdi-file-document-outline</v-icon>
               <div class="flex-grow-1">
                 <div class="text-body-2 font-weight-medium">{{ getFileInfo(message)!.name }}</div>
@@ -78,7 +109,7 @@
                 icon
                 size="x-small"
                 variant="text"
-                @click="openFile(getFileInfo(message)!.href)"
+                @click.stop="openFile(getFileInfo(message)!.href)"
               >
                 <v-icon size="16">mdi-download</v-icon>
               </v-btn>
@@ -229,6 +260,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   contextmenu: [event: MouseEvent];
   'preview-image': [url: string];
+  'preview-file': [info: { name: string; href: string }];
   'toggle-reaction': [emoji: string];
   'sender-click': [];
 }>();
@@ -289,23 +321,58 @@ function getVideoUrl(msg: Message): string | null {
   } catch { return null; }
 }
 
-function getFileInfo(msg: Message): { name: string; size: string; href: string } | null {
+function getFileInfo(msg: Message): { name: string; size: string; href: string; ext: string } | null {
   if (!msg.content?.startsWith('{')) return null;
   try {
     const p = JSON.parse(msg.content);
+
+    // PATH 1: CRM upload — { href, name, size, mime }
     if (p.href && p.name && typeof p.size === 'number' && p.mime && !p.mime.startsWith('image/') && !p.mime.startsWith('video/')) {
       const size = p.size > 1048576 ? `${(p.size / 1048576).toFixed(1)} MB` : `${Math.round(p.size / 1024)} KB`;
-      return { name: p.name, size, href: p.href };
+      const ext = (p.name as string).split('.').pop()?.toLowerCase() || '';
+      return { name: p.name, size, href: p.href, ext };
     }
+
+    // PATH 2: Zalo file — { href, fileName, totalSize }
+    if (p.href && (p.fileName || p.name) && typeof p.totalSize === 'number') {
+      const size = p.totalSize > 1048576 ? `${(p.totalSize / 1048576).toFixed(1)} MB` : `${Math.round(p.totalSize / 1024)} KB`;
+      const name = p.name || p.fileName;
+      const ext = (name as string).split('.').pop()?.toLowerCase() || '';
+      return { name, size, href: p.href, ext };
+    }
+
     const params = typeof p.params === 'string' ? JSON.parse(p.params) : p.params;
+
+    // PATH 3: Zalo file — params có fileExt hoặc fType
     if (params?.fileExt || params?.fType === 1) {
       const bytes = parseInt(params.fileSize || '0');
       const size = bytes > 1048576 ? `${(bytes / 1048576).toFixed(1)} MB` : `${Math.round(bytes / 1024)} KB`;
-      return { name: p.title || `file.${params.fileExt || 'unknown'}`, size, href: p.href || '' };
+      const name = p.title || `file.${params.fileExt || 'unknown'}`;
+      const ext = (params.fileExt || (p.title as string)?.split('.').pop() || '').toLowerCase();
+      return { name, size, href: p.href || '', ext };
+    }
+
+    // PATH 4: File upload — { title, href, params: { fileSize } } không có fileExt
+    if (p.href && p.title && params?.fileSize) {
+      const bytes = parseInt(params.fileSize || '0');
+      const size = bytes > 1048576 ? `${(bytes / 1048576).toFixed(1)} MB` : `${Math.round(bytes / 1024)} KB`;
+      const ext = (p.title as string).split('.').pop()?.toLowerCase() || '';
+      return { name: p.title, size, href: p.href, ext };
     }
   } catch {}
   return null;
 }
+
+function getFileProxyUrl(href: string, name: string, inline = false): string {
+  if (href.startsWith('http') && (href.includes('zdn.vn') || href.includes('zaloapp.com') || href.includes('zalocontent.com') || href.includes('dlfl.vn'))) {
+    const convId = props.conversationId || '';
+    const base = `/api/v1/conversations/${convId}/attachments/download?url=${encodeURIComponent(href)}&name=${encodeURIComponent(name)}`;
+    return inline ? `${base}&inline=1` : base;
+  }
+  return href;
+}
+
+const INLINE_EXTENSIONS = new Set(['pdf', 'jpg', 'jpeg', 'png', 'webp', 'gif', 'svg', 'bmp', 'txt', 'log', 'csv', 'json', 'xml', 'md']);
 
 function parseDisplayContent(content: string | null): string {
   if (!content) return '';
@@ -682,6 +749,11 @@ function openFile(href: string) {
   border-radius: 7px;
   background: rgba(33, 150, 243, 0.06);
   border: 1px solid var(--smax-grey-200, #ebedf0);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.file-card:hover {
+  background: rgba(33, 150, 243, 0.12);
 }
 .chat-image {
   max-width: 100%;
@@ -823,5 +895,41 @@ function openFile(href: string) {
 }
 .reaction-trigger--right {
   right: -28px;
+}
+
+/* ── Inline PDF preview ─────────────────────────────────────── */
+.inline-pdf-wrap {
+  max-width: 420px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--smax-grey-200, #ebedf0);
+  background: #fff;
+}
+.inline-pdf-header {
+  display: flex;
+  align-items: center;
+  padding: 6px 10px;
+  background: #f5f6fa;
+  border-bottom: 1px solid #e0e0e0;
+}
+.inline-pdf-frame {
+  width: 100%;
+  height: 360px;
+  border: none;
+  background: #525659;
+}
+
+/* ── Inline file image ──────────────────────────────────────── */
+.inline-file-img-wrap {
+  max-width: 320px;
+}
+.file-img-caption {
+  display: flex;
+  align-items: center;
+  padding: 4px 8px;
+  gap: 4px;
+  background: rgba(0,0,0,0.03);
+  border-radius: 0 0 8px 8px;
+  margin-top: -4px;
 }
 </style>

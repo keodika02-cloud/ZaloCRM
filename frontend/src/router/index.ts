@@ -110,6 +110,12 @@ const routes = [
     meta: { requiresAuth: true },
   },
   {
+    path: '/files',
+    name: 'Files',
+    component: () => import('@/views/FilesView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
     path: '/:pathMatch(.*)*',
     name: 'NotFound',
     component: () => import('@/views/NotFoundView.vue'),

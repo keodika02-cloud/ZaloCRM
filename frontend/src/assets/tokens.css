@@ -142,3 +142,26 @@
 .smax-app, .smax-app * {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
+
+/* ════════ Dark theme overrides — đồng bộ với Vuetify legacy-dark ════════ */
+.v-theme--legacy-dark {
+  --smax-primary:       #00F2FF;
+  --smax-primary-hover: #00d4e0;
+  --smax-primary-soft:  rgba(0,242,255,0.12);
+  --smax-success:       #4CAF50;
+  --smax-warning:       #FFB74D;
+  --smax-info:          #00F2FF;
+  --smax-error:         #FF5252;
+
+  --smax-grey-50:       #1D2D50;
+  --smax-grey-100:      #112240;
+  --smax-grey-200:      #233554;
+  --smax-grey-300:      #3A5076;
+  --smax-grey-700:      #8892B0;
+  --smax-text:          #E6F1FF;
+
+  --smax-bg:            #112240;
+  --smax-header-bg:     #0A192F;
+  --smax-bubble-self:   #1D3A5C;
+  --smax-group-bg:      #2D1B2E;
+}

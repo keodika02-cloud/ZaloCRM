@@ -642,14 +642,17 @@ export async function chatRoutes(app: FastifyInstance) {
     const { pipeline } = await import('node:stream/promises');
 
     const tmpFiles: string[] = [];
+    const originalNames: string[] = []; // index-aligned with tmpFiles
     try {
       const parts = (request as unknown as { parts(): AsyncIterable<{ type: string; file: NodeJS.ReadableStream; filename: string }> }).parts();
       for await (const part of parts) {
         if (part.type === 'file' && part.file) {
-          const safeName = (part.filename || 'image').replace(/[^a-zA-Z0-9._-]/g, '_');
+          const originalName = part.filename || 'file';
+          const safeName = originalName.replace(/[^a-zA-Z0-9._-]/g, '_');
           const tmpPath = path.join(os.tmpdir(), `zalo-upload-${randomUUID()}-${safeName}`);
           await pipeline(part.file, fs.createWriteStream(tmpPath));
           tmpFiles.push(tmpPath);
+          originalNames.push(originalName);
         }
       }
       if (!tmpFiles.length) return reply.status(400).send({ error: 'No files uploaded' });
@@ -698,10 +701,10 @@ export async function chatRoutes(app: FastifyInstance) {
           });
           contentType = 'image';
         } else if (up.fileType === 'video') {
-          content = JSON.stringify({ href: up.fileUrl || '', fileName: up.fileName, totalSize: up.totalSize });
+          content = JSON.stringify({ href: up.fileUrl || '', fileName: up.fileName, name: originalNames[i] || up.fileName, totalSize: up.totalSize });
           contentType = 'video';
         } else {
-          content = JSON.stringify({ href: up.fileUrl || '', fileName: up.fileName, totalSize: up.totalSize });
+          content = JSON.stringify({ href: up.fileUrl || '', fileName: up.fileName, name: originalNames[i] || up.fileName, totalSize: up.totalSize });
           contentType = 'file';
         }
 

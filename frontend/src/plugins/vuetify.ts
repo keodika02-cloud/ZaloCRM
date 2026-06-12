@@ -50,6 +50,7 @@ export const vuetify = createVuetify({
           'on-background': '#E6F1FF',
           'on-surface': '#E6F1FF',
           'on-primary': '#0A192F',
+          'on-secondary': '#0A192F',
         },
       },
     },

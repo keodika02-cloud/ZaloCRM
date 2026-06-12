@@ -13,6 +13,7 @@
         <!-- General Pages -->
         <v-list-item to="/" prepend-icon="mdi-view-dashboard-outline" title="Tổng quan (Dashboard)" />
         <v-list-item to="/chat" prepend-icon="mdi-message-text-outline" title="Tin nhắn (Chat)" />
+        <v-list-item to="/files" prepend-icon="mdi-folder-multiple-outline" title="Files & Media" />
         <v-list-item to="/contacts" prepend-icon="mdi-account-group-outline" title="Khách hàng" />
         <v-list-item to="/appointments" prepend-icon="mdi-calendar-clock-outline" title="Lịch hẹn" />
         <v-list-item to="/friends" prepend-icon="mdi-account-multiple-outline" title="Bạn bè" />

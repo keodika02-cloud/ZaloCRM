@@ -139,6 +139,7 @@ interface NavTab {
 const primaryTabs: NavTab[] = [
   { path: '/',             label: 'Dashboard',  icon: '🏠', matchPrefix: '/$' },
   { path: '/chat',         label: 'Tin nhắn',   icon: '💬' },
+  { path: '/files',        label: 'Files',      icon: '📁' },
   { path: '/friends',      label: 'Bạn bè',     icon: '👥' },
   { path: '/contacts',     label: 'Khách hàng', icon: '🧑' },
   { path: '/appointments', label: 'Lịch hẹn',   icon: '📅' },

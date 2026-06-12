@@ -60,6 +60,14 @@
         <span class="ic">📅</span> Lịch hẹn
         <span v-if="activityBadgeCount || pendingAptBump" class="tab-badge">{{ (activityBadgeCount ?? 0) + pendingAptBump }}</span>
       </button>
+      <button
+        class="ip-tab"
+        :class="{ active: activeTab === 'files' }"
+        @click="activeTab = 'files'"
+      >
+        <span class="ic">📁</span> Files
+        <span v-if="fileBadgeCount" class="tab-badge">{{ fileBadgeCount }}</span>
+      </button>
     </nav>
 
     <!-- ════════ Tab content (scroll) ════════ -->
@@ -332,6 +340,69 @@
           <p>Chưa có hoạt động — sau khi có conv tin nhắn, AI sẽ tự tóm tắt + phân tích cảm xúc.</p>
         </div>
       </div>
+
+      <!-- ══════ TAB 4: FILES ══════ -->
+      <div v-show="activeTab === 'files'" class="tab-pane">
+        <div v-if="convFilesLoading" class="text-center py-4">
+          <v-progress-circular indeterminate size="24" width="2" color="primary" />
+        </div>
+        <div v-else-if="convFiles.length === 0" class="tab-empty">
+          <p>Chưa có file/ảnh nào trong hội thoại này</p>
+        </div>
+        <div v-else class="conv-files-grid">
+          <div
+            v-for="file in convFiles"
+            :key="file.id"
+            class="conv-file-item"
+            @click="previewConvFile(file)"
+          >
+            <div class="conv-file-thumb">
+              <img v-if="file.contentType === 'image'" :src="convFileUrl(file, true)" class="conv-thumb-img" loading="lazy" />
+              <v-icon v-else-if="file.contentType === 'video'" size="28" color="white">mdi-play-circle-outline</v-icon>
+              <v-icon v-else-if="file.contentType === 'pdf'" size="28" color="#e53935">mdi-file-pdf-box</v-icon>
+              <v-icon v-else size="28" color="#1976d2">mdi-file-document-outline</v-icon>
+            </div>
+            <div class="conv-file-name">{{ file.name }}</div>
+            <div class="conv-file-meta">{{ file.sizeFormatted }}</div>
+            <v-btn
+              icon size="x-small" variant="text"
+              class="conv-file-dl"
+              @click.stop="downloadConvFile(file)"
+              title="Tải xuống"
+            >
+              <v-icon size="13">mdi-download</v-icon>
+            </v-btn>
+          </div>
+        </div>
+
+        <!-- File preview dialog -->
+        <v-dialog v-model="convFilePreview" max-width="95vw" content-class="elevation-0">
+          <div class="conv-lb-wrap" @click.self="convFilePreview = false">
+            <v-btn icon size="small" class="conv-lb-close" variant="text" @click="convFilePreview = false">
+              <v-icon size="22">mdi-close</v-icon>
+            </v-btn>
+            <img
+              v-if="convPreviewItem?.contentType === 'image'"
+              :src="convFileUrl(convPreviewItem!, true)"
+              class="conv-lb-img"
+              @click.stop
+            />
+            <iframe
+              v-else-if="convPreviewItem?.contentType === 'pdf'"
+              :src="convFileUrl(convPreviewItem!, true)"
+              class="conv-lb-iframe"
+            />
+            <div v-else class="conv-lb-file-info">
+              <v-icon size="48" color="info">mdi-file-document-outline</v-icon>
+              <div class="text-body-1 mt-2">{{ convPreviewItem?.name }}</div>
+              <div class="text-caption text-grey">{{ convPreviewItem?.sizeFormatted }}</div>
+              <v-btn size="small" class="mt-3" color="primary" variant="outlined" @click="convPreviewItem && downloadConvFile(convPreviewItem)">
+                <v-icon left size="16">mdi-download</v-icon> Tải xuống
+              </v-btn>
+            </div>
+          </div>
+        </v-dialog>
+      </div>
     </div>
 
   </aside>
@@ -386,7 +457,7 @@ const {
 const { users, fetchUsers } = useUsers();
 
 // ════════ Tab state (persist sang tab khác KH khác) ════════
-const activeTab = ref<'profile' | 'relations' | 'activity'>('profile');
+const activeTab = ref<'profile' | 'relations' | 'activity' | 'files'>('profile');
 
 // Info section auto-collapse: mặc định compact (chỉ Tên + SĐT). Click tab Hồ Sơ
 // hoặc bấm "Xem đầy đủ" → expand, đếm 5s rồi tự thu gọn lại.
@@ -626,6 +697,60 @@ function relativeTime(dateStr: string) {
   if (days === 1) return 'hôm qua';
   return `${days} ngày trước`;
 }
+
+// ════════ Files tab ════════
+interface ConvFile {
+  id: string;
+  name: string;
+  href: string;
+  sizeFormatted: string;
+  contentType: string;
+  conversationId: string;
+}
+
+const convFiles = ref<ConvFile[]>([]);
+const convFilesLoading = ref(false);
+const convFilePreview = ref(false);
+const convPreviewItem = ref<ConvFile | null>(null);
+const fileBadgeCount = ref(0);
+
+function convFileUrl(file: ConvFile, inline = false): string {
+  const href = file.href;
+  if (href.startsWith('http') && (href.includes('zdn.vn') || href.includes('zaloapp.com') || href.includes('zalocontent.com') || href.includes('dlfl.vn'))) {
+    const base = `/api/v1/conversations/${file.conversationId}/attachments/download?url=${encodeURIComponent(href)}&name=${encodeURIComponent(file.name)}`;
+    return inline ? `${base}&inline=1` : base;
+  }
+  return href;
+}
+
+async function fetchConvFiles() {
+  if (!props.contactId) return;
+  convFilesLoading.value = true;
+  try {
+    const res = await api.get('/files', { params: { contactId: props.contactId, limit: '100' } });
+    convFiles.value = (res.data.files || []) as ConvFile[];
+    fileBadgeCount.value = convFiles.value.length;
+  } catch (err) {
+    console.error('[panel-files] fetch error:', err);
+    convFiles.value = [];
+  } finally {
+    convFilesLoading.value = false;
+  }
+}
+
+function previewConvFile(file: ConvFile) {
+  convPreviewItem.value = file;
+  convFilePreview.value = true;
+}
+
+function downloadConvFile(file: ConvFile) {
+  window.open(convFileUrl(file), '_blank');
+}
+
+watch(() => props.contactId, (id) => {
+  if (id) fetchConvFiles();
+  else { convFiles.value = []; fileBadgeCount.value = 0; }
+}, { immediate: true });
 </script>
 
 <style scoped>
@@ -1063,5 +1188,98 @@ function relativeTime(dateStr: string) {
 /* ════════ Notes section in Tab Hồ Sơ ════════ */
 .ip-notes-section {
   margin-top: 10px;
+}
+
+/* ════════ Files tab grid ════════ */
+.conv-files-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+  gap: 6px;
+}
+.conv-file-item {
+  position: relative;
+  border: 1px solid var(--smax-grey-200, #ebedf0);
+  border-radius: 6px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: box-shadow 0.15s;
+  background: var(--smax-bg);
+}
+.conv-file-item:hover {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+.conv-file-item:hover .conv-file-dl {
+  opacity: 1;
+}
+.conv-file-thumb {
+  width: 100%;
+  height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--smax-grey-100, #f5f6fa);
+  overflow: hidden;
+}
+.conv-thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.conv-file-name {
+  font-size: 10px;
+  padding: 3px 5px 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--smax-text);
+}
+.conv-file-meta {
+  font-size: 9px;
+  padding: 1px 5px 4px;
+  color: #999;
+}
+.conv-file-dl {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  opacity: 0;
+  transition: opacity 0.15s;
+  background: rgba(255,255,255,0.8) !important;
+}
+
+/* ════════ File preview lightbox ════════ */
+.conv-lb-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 150px;
+}
+.conv-lb-close {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  color: #fff !important;
+  background: rgba(0,0,0,0.4) !important;
+  z-index: 1;
+  border-radius: 50% !important;
+}
+.conv-lb-img {
+  max-width: 100%;
+  max-height: 80vh;
+  border-radius: 8px;
+  object-fit: contain;
+}
+.conv-lb-iframe {
+  width: 85vw;
+  height: 80vh;
+  border: none;
+  border-radius: 8px;
+  background: #525659;
+}
+.conv-lb-file-info {
+  text-align: center;
+  padding: 24px;
+  color: #fff;
 }
 </style>

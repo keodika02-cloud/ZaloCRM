@@ -359,6 +359,15 @@ function getFileInfo(msg: Message): { name: string; size: string; href: string; 
       const ext = (p.title as string).split('.').pop()?.toLowerCase() || '';
       return { name: p.title, size, href: p.href, ext };
     }
+
+    // PATH 5: Fallback — any JSON with href that isn't plain text (link/file/image/etc.)
+    if (p.href && typeof p.href === 'string' && p.href.startsWith('http')) {
+      const name = p.fileName || p.name || p.title || (p.href.split('/').pop() || 'link');
+      const ext = name.split('.').pop()?.toLowerCase() || '';
+      const bytes = typeof p.totalSize === 'number' ? p.totalSize : parseInt(p.params?.fileSize || '0') || 0;
+      const size = bytes > 1048576 ? `${(bytes / 1048576).toFixed(1)} MB` : bytes > 0 ? `${Math.round(bytes / 1024)} KB` : '';
+      return { name, size, href: p.href, ext };
+    }
   } catch {}
   return null;
 }

@@ -448,7 +448,7 @@
     </v-dialog>
 
     <!-- File preview -->
-    <v-dialog v-model="showFilePreview" max-width="900" content-class="elevation-0">
+    <v-dialog v-model="showFilePreview" max-width="95vw" content-class="elevation-0">
       <div class="file-preview-wrap">
         <div class="file-preview-header">
           <v-icon size="20" color="info" class="mr-2">mdi-file-document-outline</v-icon>
@@ -462,7 +462,18 @@
           </v-btn>
         </div>
         <div class="file-preview-body">
-          <iframe v-if="previewFileUrl" :src="previewFileUrl" class="preview-iframe" />
+          <!-- Image preview -->
+          <img v-if="isPreviewImage" :src="previewFileUrl" class="preview-center-img" @click.stop />
+          <!-- PDF / Office via iframe -->
+          <iframe v-else-if="previewFileUrl" :src="previewFileUrl" class="preview-iframe" />
+          <!-- Unsupported file -->
+          <div v-else class="preview-unsupported">
+            <v-icon size="64" color="info">mdi-file-document-outline</v-icon>
+            <div class="text-body-1 mt-3">Không hỗ trợ xem trước</div>
+            <v-btn class="mt-4" color="primary" variant="outlined" @click="downloadPreviewFile">
+              <v-icon left>mdi-download</v-icon> Tải xuống
+            </v-btn>
+          </div>
         </div>
       </div>
     </v-dialog>
@@ -574,13 +585,36 @@ function closeImagePreview() { previewImageUrl.value = ''; zoomImage.value = fal
 // File preview
 const showFilePreview = ref(false);
 const previewFileInfo = ref<{ name: string; href: string } | null>(null);
+
+const OFFICE_EXTS = new Set(['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'odt', 'ods', 'odp']);
+const IMAGE_EXTS = new Set(['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg', 'bmp']);
+
+const previewFileExt = computed(() => {
+  if (!previewFileInfo.value) return '';
+  return (previewFileInfo.value.name || '').split('.').pop()?.toLowerCase() || '';
+});
+const isPreviewImage = computed(() => IMAGE_EXTS.has(previewFileExt.value));
+
 const previewFileUrl = computed(() => {
   if (!previewFileInfo.value) return '';
   const href = previewFileInfo.value.href;
+  const ext = previewFileExt.value;
+  // Office docs → Google Docs Viewer
+  if (OFFICE_EXTS.has(ext) && href.startsWith('http')) {
+    // Use backend proxy for Zalo CDN, direct URL for public files
+    if (href.includes('zdn.vn') || href.includes('zaloapp.com') || href.includes('zalocontent.com') || href.includes('dlfl.vn')) {
+      const proxyUrl = `/api/v1/conversations/${props.conversation?.id || ''}/attachments/download?url=${encodeURIComponent(href)}&name=${encodeURIComponent(previewFileInfo.value.name)}&inline=1`;
+      return `https://docs.google.com/viewer?url=${encodeURIComponent(proxyUrl)}&embedded=true`;
+    }
+    return `https://docs.google.com/viewer?url=${encodeURIComponent(href)}&embedded=true`;
+  }
+  // Other files (PDF, etc.) — inline proxy
   if (href.startsWith('http') && (href.includes('zdn.vn') || href.includes('zaloapp.com') || href.includes('zalocontent.com') || href.includes('dlfl.vn'))) {
     return `/api/v1/conversations/${props.conversation?.id || ''}/attachments/download?url=${encodeURIComponent(href)}&name=${encodeURIComponent(previewFileInfo.value.name)}&inline=1`;
   }
-  return href;
+  // Direct URL for images and local files
+  if (ext && (IMAGE_EXTS.has(ext) || ext === 'pdf')) return href;
+  return '';
 });
 
 function onPreviewFile(info: { name: string; href: string }) {
@@ -2086,5 +2120,19 @@ onBeforeUnmount(() => { document.removeEventListener('keydown', onKeydown); });
   height: 100%;
   min-height: 60vh;
   border: none;
+}
+.preview-center-img {
+  max-width: 100%;
+  max-height: 80vh;
+  object-fit: contain;
+  border-radius: 8px;
+}
+.preview-unsupported {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 40vh;
+  color: #fff;
 }
 </style>

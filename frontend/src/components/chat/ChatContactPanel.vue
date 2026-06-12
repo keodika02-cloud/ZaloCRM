@@ -398,8 +398,17 @@
 
         <!-- Sub-tab: Link -->
         <template v-else>
-          <div class="tab-empty">
+          <div v-if="convLinks.length === 0" class="tab-empty">
             <p>Chưa có link nào được chia sẻ</p>
+          </div>
+          <div v-else class="conv-links-list">
+            <div v-for="link in convLinks" :key="link.id" class="conv-link-item" @click="openLink(link.href)">
+              <v-icon size="18" color="info" class="mr-2">mdi-link</v-icon>
+              <div class="flex-grow-1" style="min-width:0">
+                <div class="text-body-2" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ link.name }}</div>
+                <div class="text-caption text-grey" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ link.href }}</div>
+              </div>
+            </div>
           </div>
         </template>
 
@@ -745,7 +754,8 @@ const fileBadgeCount = ref(0);
 const imageBadgeCount = ref(0);
 
 const convImages = computed(() => convFiles.value.filter(f => f.contentType === 'image' || f.contentType === 'video'));
-const convDocuments = computed(() => convFiles.value.filter(f => f.contentType !== 'image' && f.contentType !== 'video'));
+const convDocuments = computed(() => convFiles.value.filter(f => f.contentType !== 'image' && f.contentType !== 'video' && f.contentType !== 'link'));
+const convLinks = computed(() => convFiles.value.filter(f => f.contentType === 'link'));
 
 function convFileUrl(file: ConvFile, inline = false): string {
   const href = file.href;
@@ -773,12 +783,23 @@ async function fetchConvFiles() {
 }
 
 function previewConvFile(file: ConvFile) {
-  convPreviewItem.value = file;
-  convFilePreview.value = true;
+  if (file.contentType === 'image' || file.contentType === 'pdf') {
+    convPreviewItem.value = file;
+    convFilePreview.value = true;
+  } else if (file.contentType === 'video') {
+    window.open(convFileUrl(file, true), '_blank');
+  } else {
+    // Non-previewable file — open in new tab for browser to handle
+    window.open(convFileUrl(file, true), '_blank');
+  }
 }
 
 function downloadConvFile(file: ConvFile) {
   window.open(convFileUrl(file), '_blank');
+}
+
+function openLink(url: string) {
+  window.open(url, '_blank');
 }
 
 watch(() => props.contactId, (id) => {
@@ -1351,5 +1372,24 @@ watch(() => props.contactId, (id) => {
   font-size: 10px; font-weight: 700;
   padding: 0 5px;
   border-radius: 8px;
+}
+
+/* ── Links list ──────────────────────────────────────────── */
+.conv-links-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.conv-link-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+  border: 1px solid var(--smax-grey-200, #ebedf0);
+}
+.conv-link-item:hover {
+  background: var(--smax-grey-100, #f5f6fa);
 }
 </style>

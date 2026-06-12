@@ -10,7 +10,7 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { prisma } from '../../shared/database/prisma-client.js';
 import { authMiddleware } from '../auth/auth-middleware.js';
 
-const ALLOWED_TYPES = new Set(['image', 'video', 'file', 'pdf', 'all']);
+const ALLOWED_TYPES = new Set(['image', 'video', 'file', 'pdf', 'link', 'all']);
 
 const EXT_PDF = new Set(['pdf']);
 const EXT_IMAGE = new Set(['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg', 'bmp']);
@@ -21,6 +21,7 @@ function extractExt(name: string): string {
 }
 
 function deriveType(contentType: string, name: string, href: string): string {
+  if (contentType === 'link') return 'link';
   if (contentType === 'image') return 'image';
   if (contentType === 'video') return 'video';
   const ext = extractExt(name || href);
@@ -43,7 +44,11 @@ function parseContentInfo(content: string | null): { name: string; href: string;
       if (!p.name) {
         name = name.replace(/_/g, ' ');
       }
-      const href = p.href || p.fileUrl || p.normalUrl || p.hdUrl || '';
+      const href = p.href || p.fileUrl || p.normalUrl || p.hdUrl || p.url || '';
+      // For links, name = url title or domain
+      if (!name && href.startsWith('http')) {
+        try { name = new URL(href).hostname.replace('www.', ''); } catch {}
+      }
       // Parse size: try p.size (number), p.totalSize (number), or p.params.fileSize (string)
       let size = 0;
       if (typeof p.size === 'number') size = p.size;
@@ -97,7 +102,7 @@ export async function filesRoutes(app: FastifyInstance): Promise<void> {
       const where: any = {
         conversation: { orgId: user.orgId },
         isDeleted: { not: true },
-        contentType: { in: ['image', 'video', 'file'] },
+        contentType: { in: ['image', 'video', 'file', 'link'] },
       };
 
       if (conversationId) {

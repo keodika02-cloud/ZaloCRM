@@ -221,8 +221,19 @@ export function useChat() {
 
   async function requestNotifPermission() {
     if (typeof window === 'undefined' || !('Notification' in window)) return;
-    if (Notification.permission === 'granted' || Notification.permission === 'denied') return;
-    await Notification.requestPermission();
+    // Must be called from user gesture in modern browsers
+    if (Notification.permission === 'default') {
+      try { await Notification.requestPermission(); } catch {}
+    }
+  }
+
+  // Try to request on first user click anywhere
+  if (typeof document !== 'undefined') {
+    const tryRequest = () => {
+      requestNotifPermission();
+      document.removeEventListener('click', tryRequest);
+    };
+    document.addEventListener('click', tryRequest, { once: true });
   }
 
   function showDesktopNotification(data: { message: Message; conversationId: string }) {

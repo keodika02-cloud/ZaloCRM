@@ -638,10 +638,11 @@ async function startPreviewRender(info: { name: string; href: string }) {
       const blob = new Blob([buf], { type: 'application/pdf' });
       previewBlobUrl.value = URL.createObjectURL(blob);
     } else if (ext === 'docx') {
+      previewRendered.value = true;
       await nextTick();
       if (previewContainer.value) {
         const { default: docx } = await import('docx-preview');
-        await docx.renderAsync(buf, previewContainer.value, undefined, {
+        await docx.renderAsync(new Blob([buf]), previewContainer.value, undefined, {
           className: 'docx-render',
           inWrapper: true,
           ignoreWidth: false,
@@ -651,11 +652,12 @@ async function startPreviewRender(info: { name: string; href: string }) {
           ignoreLastRenderedPageBreak: true,
           experimental: false,
           trimXmlDeclaration: true,
-          debug: false,
+          debug: true,
         });
-        previewRendered.value = true;
       }
     } else if (['xls', 'xlsx'].includes(ext)) {
+      previewRendered.value = true;
+      await nextTick();
       const { read, utils } = await import('xlsx');
       const wb = read(buf, { type: 'array' });
       let html = '';
@@ -665,7 +667,6 @@ async function startPreviewRender(info: { name: string; href: string }) {
       }
       if (previewContainer.value) {
         previewContainer.value.innerHTML = html;
-        previewRendered.value = true;
       }
     } else {
       previewError.value = `Định dạng .${ext} chưa được hỗ trợ xem trước`;
@@ -2199,12 +2200,13 @@ onBeforeUnmount(() => { document.removeEventListener('keydown', onKeydown); });
   color: #fff;
 }
 .preview-rendered {
-  padding: 16px;
-  background: #fff;
-  color: #212121;
-  min-height: 40vh;
-  overflow: auto;
+  width: 100%;
+  min-height: 60vh;
   max-height: 80vh;
+  background: #ffffff;
+  color: #212121;
+  padding: 24px;
+  overflow: auto;
 }
 .preview-rendered :deep(table) {
   border-collapse: collapse;
@@ -2218,5 +2220,8 @@ onBeforeUnmount(() => { document.removeEventListener('keydown', onKeydown); });
 }
 .preview-rendered :deep(.docx-render) {
   max-width: 100%;
+}
+.preview-rendered :deep(.docx-wrapper) {
+  background: #fff;
 }
 </style>

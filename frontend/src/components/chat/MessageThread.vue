@@ -326,6 +326,23 @@
           </button>
         </div>
 
+        <!-- Pending image preview bar -->
+        <div v-if="pendingImages.length > 0" class="pending-images-bar">
+          <div class="pending-images-list">
+            <div v-for="(img, i) in pendingPreviews" :key="i" class="pending-img-wrap">
+              <img :src="img.url" class="pending-thumb" />
+              <button class="pending-img-remove" @click="removePendingImage(i)" title="Xóa">×</button>
+            </div>
+          </div>
+          <div class="pending-images-actions">
+            <span class="text-caption text-grey mr-2">{{ pendingImages.length }} ảnh</span>
+            <v-btn size="x-small" variant="text" color="error" @click="clearPendingImages">Hủy</v-btn>
+            <v-btn size="small" variant="flat" color="primary" :loading="sendingImages" @click="sendPendingImages">
+              <v-icon left size="16">mdi-send</v-icon> Gửi
+            </v-btn>
+          </div>
+        </div>
+
         <div class="input-row">
           <!-- Avatar nick đang gửi — OUTSIDE editor (góc trái), halo gradient cam-đỏ-vàng -->
           <div
@@ -1273,7 +1290,7 @@ function onPickFile() { fileInputRef.value?.click(); }
 
 function onImageFilesPicked(e: Event) {
   const files = Array.from((e.target as HTMLInputElement).files || []);
-  if (files.length) handleImageFiles(files);
+  if (files.length) addToPending(files);
   if (imageInputRef.value) imageInputRef.value.value = '';
 }
 function onFileFilesPicked(e: Event) {
@@ -1282,8 +1299,39 @@ function onFileFilesPicked(e: Event) {
   if (fileInputRef.value) fileInputRef.value.value = '';
 }
 function onPasteImage(files: File[]) {
-  // Bắt được khi user Ctrl+V image vào editor
-  handleImageFiles(files);
+  addToPending(files);
+}
+
+// ── Pending images (preview before send) ──────────────────────────
+const pendingImages = ref<File[]>([]);
+const pendingPreviews = ref<{ url: string }[]>([]);
+const sendingImages = ref(false);
+
+function addToPending(files: File[]) {
+  for (const f of files) {
+    pendingImages.value.push(f);
+    pendingPreviews.value.push({ url: URL.createObjectURL(f) });
+  }
+}
+function removePendingImage(index: number) {
+  URL.revokeObjectURL(pendingPreviews.value[index].url);
+  pendingImages.value.splice(index, 1);
+  pendingPreviews.value.splice(index, 1);
+}
+function clearPendingImages() {
+  for (const p of pendingPreviews.value) URL.revokeObjectURL(p.url);
+  pendingImages.value = [];
+  pendingPreviews.value = [];
+}
+async function sendPendingImages() {
+  if (!pendingImages.value.length) return;
+  sendingImages.value = true;
+  try {
+    await handleImageFiles([...pendingImages.value]);
+    clearPendingImages();
+  } finally {
+    sendingImages.value = false;
+  }
 }
 
 async function handleImageFiles(files: File[]) {
@@ -1931,6 +1979,61 @@ onBeforeUnmount(() => { document.removeEventListener('keydown', onKeydown); });
   margin-right: 4px; padding-right: 4px;
 }
 .icon-tool.ai-btn { color: #9c27b0; }
+
+/* ── Pending images preview ──────────────────────────────────── */
+.pending-images-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--smax-grey-100, #f5f6fa);
+  border-top: 1px solid var(--smax-grey-200, #ebedf0);
+}
+.pending-images-list {
+  display: flex;
+  gap: 6px;
+  flex: 1;
+  overflow-x: auto;
+}
+.pending-img-wrap {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--smax-grey-300, #d4d8de);
+}
+.pending-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.pending-img-remove {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.6);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+.pending-img-remove:hover { background: #ff3d00; }
+.pending-images-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
 
 .input-row {
   display: flex; align-items: flex-end; gap: 8px;

@@ -626,6 +626,7 @@ export async function chatRoutes(app: FastifyInstance) {
   app.post('/api/v1/conversations/:id/upload-image', { preHandler: requireZaloAccess('chat') }, async (request: FastifyRequest, reply: FastifyReply) => {
     const user = request.user!;
     const { id } = request.params as { id: string };
+    const { albumKey: queryAlbumKey, index: queryIndex, total: queryTotal } = request.query as { albumKey?: string; index?: string; total?: string };
 
     const conversation = await prisma.conversation.findFirst({
       where: { id, orgId: user.orgId },
@@ -685,7 +686,9 @@ export async function chatRoutes(app: FastifyInstance) {
 
       // Tạo Message rows với URLs thật từ uploadResults
       const createdMessages = [];
-      const albumKey = uploadResults.length > 1 ? randomUUID() : null;
+      const albumKey = queryAlbumKey || (uploadResults.length > 1 ? randomUUID() : null);
+      const albumIndex = queryIndex ? parseInt(queryIndex) : null;
+      const albumTotal = queryTotal ? parseInt(queryTotal) : null;
       for (let i = 0; i < uploadResults.length; i++) {
         const up = uploadResults[i] as unknown as {
           fileType: 'image' | 'video' | 'others';
@@ -737,7 +740,7 @@ export async function chatRoutes(app: FastifyInstance) {
                 id: randomUUID(), conversationId: id, zaloMsgId, cliMsgId: String(Date.now()), senderType: 'self',
                 senderUid: conversation.zaloAccount.zaloUid || '', senderName: 'Staff',
                 content, contentType, sentAt: new Date(), repliedByUserId: user.id,
-                albumKey: albumKey ?? null, albumIndex: albumKey ? i : null, albumTotal: albumKey ? uploadResults.length : null,
+                albumKey: albumKey ?? null, albumIndex: albumIndex ?? (albumKey ? i : null), albumTotal: albumTotal ?? (albumKey ? uploadResults.length : null),
               },
             })
           : await prisma.message.create({
@@ -745,7 +748,7 @@ export async function chatRoutes(app: FastifyInstance) {
                 id: randomUUID(), conversationId: id, zaloMsgId: zaloMsgId || null, cliMsgId: String(Date.now()), senderType: 'self',
                 senderUid: conversation.zaloAccount.zaloUid || '', senderName: 'Staff',
                 content, contentType, sentAt: new Date(), repliedByUserId: user.id,
-                albumKey: albumKey ?? null, albumIndex: albumKey ? i : null, albumTotal: albumKey ? uploadResults.length : null,
+                albumKey: albumKey ?? null, albumIndex: albumIndex ?? (albumKey ? i : null), albumTotal: albumTotal ?? (albumKey ? uploadResults.length : null),
               },
             });
         createdMessages.push(msg);

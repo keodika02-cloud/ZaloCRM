@@ -1232,13 +1232,14 @@ function onPasteImage(files: File[]) {
 async function handleImageFiles(files: File[]) {
   if (!props.conversation?.id) return;
   if (!files.length) return;
+  const albumKey = crypto.randomUUID();
   let ok = 0, fail = 0;
   for (let i = 0; i < files.length; i++) {
     toast.push(`📷 Đang gửi ${i + 1}/${files.length} ảnh…`, 'default', 0);
     try {
       const fd = new FormData();
       fd.append('files', files[i], files[i].name);
-      await api.post(`/conversations/${props.conversation.id}/upload-image`, fd, {
+      await api.post(`/conversations/${props.conversation.id}/upload-image?albumKey=${albumKey}&index=${i}&total=${files.length}`, fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       ok++;

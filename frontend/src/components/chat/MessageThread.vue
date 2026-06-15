@@ -425,16 +425,25 @@
     />
 
     <!-- Image preview -->
-    <v-dialog v-model="showImagePreview" max-width="95vw" content-class="elevation-0">
-      <div class="image-preview-wrap" @click.self="closeImagePreview">
+    <v-dialog v-model="showImagePreview" max-width="95vw" content-class="elevation-0" @after-leave="closeImagePreview">
+      <div class="image-preview-wrap" @click.self="closeImagePreview" @wheel.prevent="onWheelZoom">
         <v-btn v-if="imageList.length > 1" icon size="small" class="nav-btn nav-prev" variant="text" @click="prevImage">
           <v-icon size="28">mdi-chevron-left</v-icon>
         </v-btn>
-        <div class="image-preview-content" @click="zoomImage = !zoomImage">
+        <div
+          class="image-preview-content"
+          :style="{ cursor: imgZoom > 1 ? (isDragging ? 'grabbing' : 'grab') : 'zoom-in' }"
+          @mousedown="onDragStart"
+          @mousemove="onDragMove"
+          @mouseup="onDragEnd"
+          @mouseleave="onDragEnd"
+          @dblclick="toggleZoom"
+        >
           <img
             :src="previewImageUrl"
             alt="Preview"
-            :class="zoomImage ? 'preview-img-zoom' : 'preview-img'"
+            :style="imgStyle"
+            draggable="false"
           />
         </div>
         <v-btn v-if="imageList.length > 1" icon size="small" class="nav-btn nav-next" variant="text" @click="nextImage">
@@ -566,7 +575,6 @@ const inputText = ref('');
 const messagesContainer = ref<HTMLElement | null>(null);
 const previewImageUrl = ref('');
 const showImagePreview = computed({ get: () => !!previewImageUrl.value, set: (v) => { if (!v) previewImageUrl.value = ''; } });
-const zoomImage = ref(false);
 
 // Collect all image URLs from current messages for prev/next navigation
 const imageList = computed(() => {
@@ -579,15 +587,64 @@ const imageList = computed(() => {
 });
 const imageIndex = computed(() => imageList.value.indexOf(previewImageUrl.value));
 
+// Pan & zoom state
+const imgZoom = ref(1);
+const imgPanX = ref(0);
+const imgPanY = ref(0);
+const isDragging = ref(false);
+const dragStartX = ref(0);
+const dragStartY = ref(0);
+const panStartX = ref(0);
+const panStartY = ref(0);
+
+const imgStyle = computed(() => ({
+  transform: `scale(${imgZoom.value}) translate(${imgPanX.value / imgZoom.value}px, ${imgPanY.value / imgZoom.value}px)`,
+  maxWidth: imgZoom.value <= 1 ? '90vw' : 'none',
+  maxHeight: imgZoom.value <= 1 ? '85vh' : 'none',
+  borderRadius: imgZoom.value > 1 ? '4px' : '12px',
+  boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+  objectFit: 'contain' as const,
+  transition: isDragging.value ? 'none' : 'transform 0.2s',
+}));
+
+function onWheelZoom(e: WheelEvent) {
+  const delta = e.deltaY > 0 ? -0.3 : 0.3;
+  imgZoom.value = Math.max(0.5, Math.min(5, imgZoom.value + delta));
+  if (imgZoom.value <= 1) { imgPanX.value = 0; imgPanY.value = 0; }
+}
+
+function toggleZoom() {
+  if (imgZoom.value > 1) { imgZoom.value = 1; imgPanX.value = 0; imgPanY.value = 0; }
+  else imgZoom.value = 2.5;
+}
+
+function onDragStart(e: MouseEvent) {
+  if (imgZoom.value <= 1) return;
+  isDragging.value = true;
+  dragStartX.value = e.clientX;
+  dragStartY.value = e.clientY;
+  panStartX.value = imgPanX.value;
+  panStartY.value = imgPanY.value;
+}
+
+function onDragMove(e: MouseEvent) {
+  if (!isDragging.value) return;
+  imgPanX.value = panStartX.value + (e.clientX - dragStartX.value);
+  imgPanY.value = panStartY.value + (e.clientY - dragStartY.value);
+}
+
+function onDragEnd() { isDragging.value = false; }
+
 function prevImage() {
   const idx = imageIndex.value;
-  if (idx > 0) { previewImageUrl.value = imageList.value[idx - 1]; zoomImage.value = false; }
+  if (idx > 0) { previewImageUrl.value = imageList.value[idx - 1]; resetZoom(); }
 }
 function nextImage() {
   const idx = imageIndex.value;
-  if (idx < imageList.value.length - 1) { previewImageUrl.value = imageList.value[idx + 1]; zoomImage.value = false; }
+  if (idx < imageList.value.length - 1) { previewImageUrl.value = imageList.value[idx + 1]; resetZoom(); }
 }
-function closeImagePreview() { previewImageUrl.value = ''; zoomImage.value = false; }
+function resetZoom() { imgZoom.value = 1; imgPanX.value = 0; imgPanY.value = 0; }
+function closeImagePreview() { previewImageUrl.value = ''; resetZoom(); }
 
 // File preview
 const showFilePreview = ref(false);
@@ -2100,31 +2157,19 @@ onBeforeUnmount(() => { document.removeEventListener('keydown', onKeydown); });
   align-items: center;
   justify-content: center;
   min-height: 200px;
+  overflow: hidden;
 }
 .image-preview-content {
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: zoom-in;
   max-height: 90vh;
+  max-width: 95vw;
+  overflow: hidden;
 }
-.preview-img {
-  max-width: 100%;
-  max-height: 85vh;
-  border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-  object-fit: contain;
-  transition: transform 0.2s;
-}
-.preview-img-zoom {
-  max-width: none;
-  max-height: none;
-  width: auto;
-  height: auto;
-  transform: scale(1.8);
-  border-radius: 4px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-  cursor: zoom-out;
+.image-preview-content img {
+  user-select: none;
+  -webkit-user-drag: none;
 }
 .nav-btn {
   position: absolute;

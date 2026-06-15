@@ -159,8 +159,9 @@ export async function chatOperationsRoutes(app: FastifyInstance) {
     if (!refs) return reply.status(404).send({ error: 'Message not found' });
 
     const displayEmoji = reactionDisplay(reaction);
+    // Zalo-style: remove ALL reactions of this user on this message at once
     await prisma.messageReaction.deleteMany({
-      where: { messageId: refs.messageId, reactorId: user.id, emoji: displayEmoji },
+      where: { messageId: refs.messageId, reactorId: user.id },
     });
     eventBuffer.recordReaction(id, refs.messageId, user.id, user.email, reaction, 'remove');
 

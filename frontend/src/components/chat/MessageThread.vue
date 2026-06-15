@@ -205,7 +205,7 @@
               <div v-if="conversation.threadType === 'group' && item.senderType !== 'self'" class="album-sender">
                 {{ item.senderName || 'Unknown' }}
               </div>
-              <div class="bubble album">
+              <div class="bubble album" @contextmenu.prevent="onContextMenu($event, item.messages[0])">
                 <div class="album-grid" :class="albumGridClass(item.messages.length)">
                   <img
                     v-for="m in item.messages"

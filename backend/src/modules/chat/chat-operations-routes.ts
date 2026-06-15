@@ -158,14 +158,31 @@ export async function chatOperationsRoutes(app: FastifyInstance) {
     const refs = await resolveMessageRefs(id, msgId, user.orgId);
     if (!refs) return reply.status(404).send({ error: 'Message not found' });
 
-    const displayEmoji = reactionDisplay(reaction);
+    // Get all reactions of this user before deleting
+    const existingReactions = await prisma.messageReaction.findMany({
+      where: { messageId: refs.messageId, reactorId: user.id },
+      select: { emoji: true, reactorSource: true },
+    });
+
     // Zalo-style: remove ALL reactions of this user on this message at once
     await prisma.messageReaction.deleteMany({
       where: { messageId: refs.messageId, reactorId: user.id },
     });
-    eventBuffer.recordReaction(id, refs.messageId, user.id, user.email, reaction, 'remove');
 
-    // Also remove from Zalo
+    // Emit removal for ALL reactions
+    const io = (app as any).io as Server;
+    const removeReactions = existingReactions.map(r => {
+      const key = Object.entries(REACTION_DISPLAY).find(([, v]) => v === r.emoji)?.[0] || r.emoji;
+      return { userId: user.id, userName: user.email, reaction: r.emoji, action: 'remove' };
+    });
+    if (removeReactions.length > 0) {
+      io?.emit('chat:reactions', {
+        conversationId: id,
+        messageId: refs.messageId,
+        msgId: refs.messageId,
+        reactions: removeReactions,
+      });
+    }
     const zaloReactionIcon = mapReaction(reaction);
     if (conv.externalThreadId && refs.zaloMsgId) {
       const threadType = conv.threadType === 'group' ? 1 : 0;

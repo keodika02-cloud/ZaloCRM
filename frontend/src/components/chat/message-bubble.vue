@@ -28,9 +28,7 @@
         @contextmenu.prevent="emit('contextmenu', $event)"
       >
         <!-- Deleted -->
-        <div v-if="message.isDeleted" class="text-decoration-line-through font-italic" style="opacity: 0.6;">
-          {{ getDeletedPreview(message) }}<span class="text-caption"> (đã thu hồi)</span>
-        </div>
+        <div v-if="message.isDeleted" class="deleted-text">Tin nhắn đã thu hồi</div>
 
         <template v-else>
           <div v-if="reply" class="reply-card">
@@ -650,22 +648,6 @@ function onPickerReact(key: string) {
   emit('toggle-reaction', key);
 }
 
-function getDeletedPreview(msg: Message): string {
-  const content = msg.content || '';
-  if (!content.startsWith('{')) return content || '(tin nhắn)';
-  switch (msg.contentType) {
-    case 'image': return '🖼️ Ảnh';
-    case 'video': return '🎥 Video';
-    case 'file': return '📎 Tệp đính kèm';
-    case 'sticker': return '🎴 Sticker';
-    case 'voice': return '🎤 Tin nhắn thoại';
-    case 'gif': return '🎞 GIF';
-    case 'link': return '🔗 Liên kết';
-    case 'location': return '📍 Vị trí';
-    default: return '(tin nhắn)';
-  }
-}
-
 function openFile(href: string) {
   if (href.startsWith('http') && (href.includes('zdn.vn') || href.includes('zaloapp.com') || href.includes('zalocontent.com') || href.includes('dlfl.vn'))) {
     const name = getFileInfo(props.message)?.name || 'file';
@@ -776,6 +758,15 @@ function openFile(href: string) {
   border: 1px solid var(--smax-grey-200, #ebedf0);
   cursor: pointer;
   transition: background 0.15s;
+}
+
+/* ── Deleted message ─────────────────────────────────────── */
+.deleted-text {
+  padding: 4px 0;
+  font-size: 13px;
+  font-style: italic;
+  color: var(--smax-grey-700, #8892B0);
+  user-select: none;
 }
 .file-card:hover {
   background: rgba(33, 150, 243, 0.12);

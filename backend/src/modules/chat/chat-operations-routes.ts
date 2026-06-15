@@ -208,23 +208,34 @@ export async function chatOperationsRoutes(app: FastifyInstance) {
 
     try {
       const threadType = conv.threadType === 'group' ? 1 : 0;
+      const isSelf = refs.repliedByUserId === user.id;
 
-      logger.info('[chat-ops] Delete attempt:', { msgId, zaloMsgId: refs.zaloMsgId, externalThreadId: conv.externalThreadId, ownerId: refs.ownerId });
+      logger.info('[chat-ops] Delete attempt:', { msgId, zaloMsgId: refs.zaloMsgId, externalThreadId: conv.externalThreadId, ownerId: refs.ownerId, isSelf });
 
       if (conv.externalThreadId && refs.ownerId) {
-        try {
-          const result = await zaloOps.deleteMessage(conv.zaloAccountId, refs.zaloMsgId, refs.cliMsgId, refs.ownerId, conv.externalThreadId, threadType, onlyMe);
-          logger.info('[chat-ops] Zalo delete success:', result);
-        } catch (e) {
-          logger.warn('[chat-ops] Zalo delete failed:', JSON.stringify(e, Object.getOwnPropertyNames(e)));
+        if (isSelf || !onlyMe) {
+          // Self message or delete-for-everyone → use undo (recall)
+          try {
+            const result = await zaloOps.undoMessage(conv.zaloAccountId, refs.zaloMsgId, refs.cliMsgId, refs.ownerId, conv.externalThreadId, threadType);
+            logger.info('[chat-ops] Zalo undo success:', result);
+          } catch (e) {
+            logger.warn('[chat-ops] Zalo undo failed:', JSON.stringify(e, Object.getOwnPropertyNames(e)));
+          }
+        } else {
+          // Other's message, delete only for me
+          try {
+            const result = await zaloOps.deleteMessage(conv.zaloAccountId, refs.zaloMsgId, refs.cliMsgId, refs.ownerId, conv.externalThreadId, threadType, true);
+            logger.info('[chat-ops] Zalo delete success:', result);
+          } catch (e) {
+            logger.warn('[chat-ops] Zalo delete failed:', JSON.stringify(e, Object.getOwnPropertyNames(e)));
+          }
         }
       } else {
-        logger.warn('[chat-ops] Skipping Zalo delete — missing externalThreadId or ownerId');
+        logger.warn('[chat-ops] Skipping Zalo operation — missing externalThreadId or ownerId');
       }
 
-      if (!onlyMe) {
-        await prisma.message.update({ where: { id: refs.messageId }, data: { isDeleted: true, deletedAt: new Date() } });
-      }
+      // Always mark as deleted in DB for undo/recall
+      await prisma.message.update({ where: { id: refs.messageId }, data: { isDeleted: true, deletedAt: new Date() } });
 
       const io = (app as any).io as Server;
       io?.emit('chat:deleted', { conversationId: id, messageId: refs.messageId, zaloMsgId: refs.zaloMsgId });

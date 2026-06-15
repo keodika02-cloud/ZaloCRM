@@ -685,6 +685,7 @@ export async function chatRoutes(app: FastifyInstance) {
 
       // Tạo Message rows với URLs thật từ uploadResults
       const createdMessages = [];
+      const albumKey = uploadResults.length > 1 ? randomUUID() : null;
       for (let i = 0; i < uploadResults.length; i++) {
         const up = uploadResults[i] as unknown as {
           fileType: 'image' | 'video' | 'others';
@@ -731,11 +732,12 @@ export async function chatRoutes(app: FastifyInstance) {
         const msg = zaloMsgId
           ? await prisma.message.upsert({
               where: { conversationId_zaloMsgId: { conversationId: id, zaloMsgId } },
-              update: { content, contentType, senderType: 'self', isDeleted: false, sentAt: new Date(), repliedByUserId: user.id },
+              update: { content, contentType, senderType: 'self', isDeleted: false, sentAt: new Date(), repliedByUserId: user.id, albumKey: albumKey ?? null, albumIndex: albumKey ? i : null, albumTotal: albumKey ? uploadResults.length : null },
               create: {
                 id: randomUUID(), conversationId: id, zaloMsgId, cliMsgId: String(Date.now()), senderType: 'self',
                 senderUid: conversation.zaloAccount.zaloUid || '', senderName: 'Staff',
                 content, contentType, sentAt: new Date(), repliedByUserId: user.id,
+                albumKey: albumKey ?? null, albumIndex: albumKey ? i : null, albumTotal: albumKey ? uploadResults.length : null,
               },
             })
           : await prisma.message.create({
@@ -743,6 +745,7 @@ export async function chatRoutes(app: FastifyInstance) {
                 id: randomUUID(), conversationId: id, zaloMsgId: zaloMsgId || null, cliMsgId: String(Date.now()), senderType: 'self',
                 senderUid: conversation.zaloAccount.zaloUid || '', senderName: 'Staff',
                 content, contentType, sentAt: new Date(), repliedByUserId: user.id,
+                albumKey: albumKey ?? null, albumIndex: albumKey ? i : null, albumTotal: albumKey ? uploadResults.length : null,
               },
             });
         createdMessages.push(msg);

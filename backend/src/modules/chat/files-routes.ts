@@ -24,6 +24,8 @@ function deriveType(contentType: string, name: string, href: string): string {
   if (contentType === 'link') return 'link';
   if (contentType === 'image') return 'image';
   if (contentType === 'video') return 'video';
+  // Text messages containing URLs → treat as link
+  if (contentType === 'text' && href && href.startsWith('http')) return 'link';
   const ext = extractExt(name || href);
   if (EXT_PDF.has(ext)) return 'pdf';
   if (EXT_IMAGE.has(ext)) return 'image';
@@ -58,6 +60,12 @@ function parseContentInfo(content: string | null): { name: string; href: string;
         size = parseInt(params?.fileSize || '0') || 0;
       }
       return { name, href, size };
+    }
+    // Plain text URL (e.g., "https://example.com")
+    if (content.match(/^https?:\/\//)) {
+      let name = '';
+      try { name = new URL(content).hostname.replace('www.', ''); } catch {}
+      return { name: name || content, href: content, size: 0 };
     }
     return { name: content, href: content, size: 0 };
   } catch {
@@ -102,7 +110,7 @@ export async function filesRoutes(app: FastifyInstance): Promise<void> {
       const where: any = {
         conversation: { orgId: user.orgId },
         isDeleted: { not: true },
-        contentType: { in: ['image', 'video', 'file', 'link'] },
+        contentType: { in: ['image', 'video', 'file', 'link', 'text'] },
       };
 
       if (conversationId) {
@@ -171,6 +179,7 @@ export async function filesRoutes(app: FastifyInstance): Promise<void> {
             size: info.size,
             sizeFormatted: formatSize(info.size),
             contentType: derivedType,
+            _origType: m.contentType, // keep original for filtering
             ext,
             conversationId: m.conversationId,
             contactName,
@@ -180,6 +189,9 @@ export async function filesRoutes(app: FastifyInstance): Promise<void> {
           };
         })
         .filter(Boolean) as any[];
+
+      // Filter out plain text messages (original contentType='text' with no URL)
+      files = files.filter((f: any) => f._origType !== 'text' || (f.href && f.href.startsWith('http')));
 
       // Apply type filter in JS (since we aggregate types from content)
       if (type !== 'all') {

@@ -1232,39 +1232,40 @@ function onPasteImage(files: File[]) {
 async function handleImageFiles(files: File[]) {
   if (!props.conversation?.id) return;
   if (!files.length) return;
-  toast.push(`📷 Đang gửi ${files.length} ảnh…`);
-  try {
-    const fd = new FormData();
-    for (const f of files) fd.append('files', f, f.name);
-    await api.post(`/conversations/${props.conversation.id}/upload-image`, fd, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-    toast.success(`Đã gửi ${files.length} ảnh`);
-    emit('refresh-thread');
-  } catch (err) {
-    const detail = (err as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Upload thất bại';
-    toast.error(`Lỗi gửi ảnh: ${detail}`);
-    console.error('[upload-image]', err);
+  let ok = 0, fail = 0;
+  for (let i = 0; i < files.length; i++) {
+    toast.push(`📷 Đang gửi ${i + 1}/${files.length} ảnh…`, 'default', 0);
+    try {
+      const fd = new FormData();
+      fd.append('files', files[i], files[i].name);
+      await api.post(`/conversations/${props.conversation.id}/upload-image`, fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      ok++;
+    } catch { fail++; }
   }
+  if (fail === 0) toast.success(`Đã gửi ${ok} ảnh`);
+  else toast.warning(`Đã gửi ${ok} ảnh, ${fail} ảnh lỗi`);
+  if (ok > 0) emit('refresh-thread');
 }
 async function handleFiles(files: File[]) {
-  // TODO: backend chưa có endpoint /upload-file riêng cho non-image
-  // Tạm dùng same endpoint upload-image — Zalo SDK auto detect type qua extension
   if (!props.conversation?.id) return;
   if (!files.length) return;
-  toast.push(`📎 Đang gửi ${files.length} file…`);
-  try {
-    const fd = new FormData();
-    for (const f of files) fd.append('files', f, f.name);
-    await api.post(`/conversations/${props.conversation.id}/upload-image`, fd, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-    toast.success(`Đã gửi ${files.length} file`);
-    emit('refresh-thread');
-  } catch (err) {
-    const detail = (err as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Upload thất bại';
-    toast.error(`Lỗi gửi file: ${detail}`);
+  let ok = 0, fail = 0;
+  for (let i = 0; i < files.length; i++) {
+    toast.push(`📎 Đang gửi ${i + 1}/${files.length} file…`, 'default', 0);
+    try {
+      const fd = new FormData();
+      fd.append('files', files[i], files[i].name);
+      await api.post(`/conversations/${props.conversation.id}/upload-image`, fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      ok++;
+    } catch { fail++; }
   }
+  if (fail === 0) toast.success(`Đã gửi ${ok} file`);
+  else toast.warning(`Đã gửi ${ok} file, ${fail} file lỗi`);
+  if (ok > 0) emit('refresh-thread');
 }
 
 // ── Format toggle: T icon bật/tắt format toolbar (B I U S list code) trong editor.

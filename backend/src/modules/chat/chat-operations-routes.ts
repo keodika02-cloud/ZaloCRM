@@ -134,13 +134,7 @@ export async function chatOperationsRoutes(app: FastifyInstance) {
           emoji: displayEmoji,
         },
       });
-      const io = (app as any).io as Server;
-      io?.emit('chat:reactions', {
-        conversationId: id,
-        messageId: refs.messageId,
-        msgId: refs.messageId,
-        reactions: [{ userId: user.id, userName: user.email, reaction: displayEmoji, action: 'add' }],
-      });
+      // eventBuffer handles io.emit — no direct emit here to avoid duplicate
       void applyContactInteraction({
         conversationId: id,
         type: `reaction_${reaction}`,
@@ -168,13 +162,7 @@ export async function chatOperationsRoutes(app: FastifyInstance) {
     await prisma.messageReaction.deleteMany({
       where: { messageId: refs.messageId, reactorId: user.id, emoji: displayEmoji },
     });
-    const io = (app as any).io as Server;
-    io?.emit('chat:reactions', {
-      conversationId: id,
-      messageId: refs.messageId,
-      msgId: refs.messageId,
-      reactions: [{ userId: user.id, userName: user.email, reaction: displayEmoji, action: 'remove' }],
-    });
+    eventBuffer.recordReaction(id, refs.messageId, user.id, user.email, reaction, 'remove');
     return { success: true };
   });
 

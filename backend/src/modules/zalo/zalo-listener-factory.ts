@@ -55,6 +55,11 @@ async function handleZaloReaction(accountId: string, io: Server | null, reaction
     const displayEmoji = ZALO_REACTION_DISPLAY[rawIcon] || rawIcon || '👍';
     const reactorName = String(data.dName || '');
 
+    // Self-dedup: if reactor is the CRM account itself, skip emit — eventBuffer already handled it
+    const { zaloPool } = await import('./zalo-pool.js');
+    const instance = zaloPool.getInstance(accountId);
+    const isSelfReaction = instance?.zaloUid === reactorZaloUid;
+
     // rIcon rỗng = remove, có icon = add (Zalo gửi cùng 1 event cho cả 2 — phân biệt qua rIcon empty)
     if (!rawIcon || rType < 0) {
       // Remove tất cả emoji của reactor này trên message (Zalo client chỉ giữ 1 emoji per user)
@@ -82,7 +87,9 @@ async function handleZaloReaction(accountId: string, io: Server | null, reaction
       });
     }
 
-    io?.emit('chat:reactions', {
+    // Only emit if NOT a self-echo (eventBuffer already emitted for our own reactions)
+    if (!isSelfReaction) {
+      io?.emit('chat:reactions', {
       conversationId: conversation.id,
       messageId: message.id,
       msgId: message.id,
@@ -94,6 +101,7 @@ async function handleZaloReaction(accountId: string, io: Server | null, reaction
         source: 'zalo',
       }],
     });
+    }
   } catch (err) {
     logger.warn(`[zalo:${accountId}] reaction handler error:`, err);
   }

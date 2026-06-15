@@ -106,7 +106,7 @@ const {
 
 const {
   typingUsers, replyingTo, editingMessage,
-  addReaction, sendTypingEvent, deleteMessage, undoMessage,
+  addReaction, removeReaction, sendTypingEvent, deleteMessage, undoMessage,
   editMessage, forwardMessage, pinConversation,
   setReplyTo, clearReplyTo, setEditing, clearEditing,
   registerSocketListeners,
@@ -158,9 +158,13 @@ const currentTypers = computed(() =>
   (selectedConvId.value ? typingUsers.value.get(selectedConvId.value) : null) || [],
 );
 
-async function onAddReaction(msgId: string, reaction: string) {
+async function onAddReaction(msgId: string, reaction: string, reacted: boolean) {
   if (!selectedConvId.value) return;
-  await addReaction(selectedConvId.value, msgId, reaction);
+  if (reacted) {
+    await removeReaction(selectedConvId.value, msgId, reaction);
+  } else {
+    await addReaction(selectedConvId.value, msgId, reaction);
+  }
 }
 async function onDeleteMessage(msgId: string) {
   if (!selectedConvId.value) return;

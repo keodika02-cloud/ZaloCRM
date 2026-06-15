@@ -547,7 +547,7 @@ const emit = defineEmits<{
   send: [content: string, replyMessageId?: string | null];
   'toggle-contact-panel': [];
   'ask-ai': [];
-  'add-reaction': [msgId: string, reaction: string];
+  'add-reaction': [msgId: string, reaction: string, reacted: boolean];
   'delete-message': [msgId: string];
   'undo-message': [msgId: string];
   'edit-message': [msgId: string, content: string];
@@ -1361,7 +1361,10 @@ function onContextMenu(event: MouseEvent, msg: Message) {
   contextPos.value = { x: event.clientX, y: event.clientY };
   showContextMenu.value = true;
 }
-function onToggleReaction(msg: Message, emoji: string) { emit('add-reaction', msg.id, emoji); }
+function onToggleReaction(msg: Message, emoji: string) {
+  const existing = (msg.reactions || []).find(r => r.emoji === emoji);
+  emit('add-reaction', msg.id, emoji, existing?.reacted || false);
+}
 function onReply() { if (contextMsg.value) emit('set-reply-to', contextMsg.value); }
 function onEdit() {
   if (contextMsg.value) {

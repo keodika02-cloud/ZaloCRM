@@ -163,6 +163,26 @@ export async function chatOperationsRoutes(app: FastifyInstance) {
       where: { messageId: refs.messageId, reactorId: user.id, emoji: displayEmoji },
     });
     eventBuffer.recordReaction(id, refs.messageId, user.id, user.email, reaction, 'remove');
+
+    // Also remove from Zalo
+    const zaloReactionIcon = mapReaction(reaction);
+    if (conv.externalThreadId && refs.zaloMsgId) {
+      const threadType = conv.threadType === 'group' ? 1 : 0;
+      try {
+        await zaloOps.addReaction(
+          conv.zaloAccountId,
+          { icon: zaloReactionIcon, rType: -1, source: 6 },
+          {
+            data: { msgId: refs.zaloMsgId, cliMsgId: refs.cliMsgId },
+            threadId: conv.externalThreadId,
+            type: threadType,
+          },
+        );
+      } catch (e) {
+        logger.warn('[chat-ops] Zalo remove reaction failed:', e);
+      }
+    }
+
     return { success: true };
   });
 

@@ -578,7 +578,7 @@ export async function chatRoutes(app: FastifyInstance) {
               where: { conversationId_zaloMsgId: { conversationId: id, zaloMsgId } },
               update: { content, contentType: 'text', senderType: 'self', isDeleted: false, sentAt: new Date(), repliedByUserId: user.id },
               create: {
-                id: randomUUID(), conversationId: id, zaloMsgId, senderType: 'self',
+                id: randomUUID(), conversationId: id, zaloMsgId, cliMsgId: String(Date.now()), senderType: 'self',
                 senderUid: conversation.zaloAccount.zaloUid || '', senderName: 'Staff',
                 content, contentType: 'text', quote: quote ?? undefined,
                 sentAt: new Date(), repliedByUserId: user.id,
@@ -586,7 +586,7 @@ export async function chatRoutes(app: FastifyInstance) {
             })
           : prisma.message.create({
               data: {
-                id: randomUUID(), conversationId: id, zaloMsgId: zaloMsgId || null, senderType: 'self',
+                id: randomUUID(), conversationId: id, zaloMsgId: zaloMsgId || null, cliMsgId: String(Date.now()), senderType: 'self',
                 senderUid: conversation.zaloAccount.zaloUid || '', senderName: 'Staff',
                 content, contentType: 'text', quote: quote ?? undefined,
                 sentAt: new Date(), repliedByUserId: user.id,
@@ -733,14 +733,14 @@ export async function chatRoutes(app: FastifyInstance) {
               where: { conversationId_zaloMsgId: { conversationId: id, zaloMsgId } },
               update: { content, contentType, senderType: 'self', isDeleted: false, sentAt: new Date(), repliedByUserId: user.id },
               create: {
-                id: randomUUID(), conversationId: id, zaloMsgId, senderType: 'self',
+                id: randomUUID(), conversationId: id, zaloMsgId, cliMsgId: String(Date.now()), senderType: 'self',
                 senderUid: conversation.zaloAccount.zaloUid || '', senderName: 'Staff',
                 content, contentType, sentAt: new Date(), repliedByUserId: user.id,
               },
             })
           : await prisma.message.create({
               data: {
-                id: randomUUID(), conversationId: id, zaloMsgId: zaloMsgId || null, senderType: 'self',
+                id: randomUUID(), conversationId: id, zaloMsgId: zaloMsgId || null, cliMsgId: String(Date.now()), senderType: 'self',
                 senderUid: conversation.zaloAccount.zaloUid || '', senderName: 'Staff',
                 content, contentType, sentAt: new Date(), repliedByUserId: user.id,
               },

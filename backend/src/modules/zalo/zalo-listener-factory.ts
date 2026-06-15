@@ -251,6 +251,7 @@ export function attachZaloListener(ctx: ListenerContext): void {
         content,
         contentType,
         msgId: String(message.data?.msgId || ''),
+        cliMsgId: message.data?.cliMsgId ? String(message.data.cliMsgId) : undefined,
         timestamp: parseInt(message.data?.ts || String(Date.now())),
         isSelf: message.isSelf || false,
         threadId: message.threadId || '',

@@ -28,14 +28,14 @@ async function resolveMessageRefs(conversationId: string, messageId: string, use
       conversationId,
       conversation: { orgId: userOrgId },
     },
-    select: { id: true, zaloMsgId: true, senderUid: true, repliedByUserId: true, conversation: { select: { zaloAccount: { select: { zaloUid: true } } } } },
+    select: { id: true, zaloMsgId: true, cliMsgId: true, senderUid: true, repliedByUserId: true, conversation: { select: { zaloAccount: { select: { zaloUid: true } } } } },
   });
 
   if (!message?.zaloMsgId) return null;
   return {
     messageId: message.id,
     zaloMsgId: message.zaloMsgId,
-    cliMsgId: message.zaloMsgId,
+    cliMsgId: message.cliMsgId || message.zaloMsgId, // Use saved client ID, fallback to server ID
     ownerId: message.senderUid || message.conversation?.zaloAccount?.zaloUid || '',
     repliedByUserId: message.repliedByUserId || null,
   };

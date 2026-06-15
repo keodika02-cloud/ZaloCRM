@@ -330,6 +330,7 @@ model Message {
   id              String    @id @default(uuid())
   conversationId  String    @map("conversation_id")
   zaloMsgId       String?   @map("zalo_msg_id")
+  cliMsgId        String?   @map("cli_msg_id") // Zalo client message id for undo/recall
   senderType      String    @map("sender_type") // self, contact
   senderUid       String?   @map("sender_uid")
   senderName      String?   @map("sender_name")

@@ -38,6 +38,7 @@ export interface IncomingMessage {
   albumIndex?: number | null;
   albumTotal?: number | null;
   isBackfill?: boolean;     // true for old_messages / sync backfill — skip automations
+  cliMsgId?: string;        // Zalo client message ID — needed for undo/recall
 }
 
 export interface HandleMessageResult {
@@ -129,6 +130,7 @@ export async function handleIncomingMessage(
           id: randomUUID(),
           conversationId: conversation.id,
           zaloMsgId: msg.msgId || null,
+          cliMsgId: msg.cliMsgId || null,
           senderType: msg.isSelf ? 'self' : 'contact',
           senderUid: msg.senderUid,
           senderName: msg.senderName || null,

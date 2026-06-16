@@ -40,20 +40,29 @@ export async function groupRoutes(app: FastifyInstance) {
 
       // 1. Get group info to extract member IDs
       const groupInfo: any = await zaloOps.getGroupInfo(accountId, groupId);
-      const g = groupInfo?.gridInfoMap?.[groupId];
-      const memberIds: string[] = Array.isArray(g?.memVerList) ? g.memVerList : (Array.isArray(g?.memList) ? g.memList : []);
+      const g: any = groupInfo?.gridInfoMap?.[groupId] || groupInfo?.data?.[groupId] || {};
+      const memberIds: string[] = Array.isArray(g?.memVerList) ? g.memVerList
+        : (Array.isArray(g?.memList) ? g.memList
+        : (Array.isArray(g?.members) ? g.members.map((m: any) => m.id || m.uid || m) : []));
+
+      // Check for pre-resolved names in groupInfo / memberInfo
+      const memberInfoMap: any = g?.memberInfo || g?.membersInfo || {};
 
       if (memberIds.length === 0) {
         return { members: [], total: g?.totalMember || 0 };
       }
 
       // 2. Get member details (names) from member IDs
-      const memberDetails: any = await zaloOps.getGroupMembersInfo(accountId, memberIds as any);
+      let memberDetails: any = {};
+      try {
+        memberDetails = await zaloOps.getGroupMembersInfo(accountId, memberIds as any);
+      } catch { /* ignore fetch errors */ }
 
       // 3. Merge: map member IDs to their details
-      // zca-js adds _0 suffix to IDs, try both formats; response is keyed by userId_0
       const members = memberIds.map((id: string) => {
-        const detail = memberDetails?.[id] || memberDetails?.[`${id}_0`] || {};
+        // Try memberInfo from getGroupInfo first, then getGroupMembersInfo
+        const detail = memberInfoMap?.[id] || memberInfoMap?.[`${id}_0`]
+          || memberDetails?.[id] || memberDetails?.[`${id}_0`] || {};
         let name = '';
         let avatar = '';
         if (typeof detail === 'string') {
@@ -61,7 +70,6 @@ export async function groupRoutes(app: FastifyInstance) {
         } else if (typeof detail === 'object') {
           name = detail.displayName || detail.nickName || detail.dName || detail.name || detail.fullName || detail.title || '';
           avatar = detail.avatar || detail.avt || detail.fullAvt || detail.avatarUrl || '';
-          // Last resort: use first string value
           if (!name) {
             const vals = Object.values(detail);
             name = (vals.find((v: any) => typeof v === 'string' && v.length > 1) as string) || '';
@@ -70,7 +78,7 @@ export async function groupRoutes(app: FastifyInstance) {
         return { id, name: name || String(id), avatar };
       });
 
-      return { members, total: g?.totalMember || members.length };
+      return { members, total: g?.totalMember || members.length, _debug: { memberIds, groupKeys: Object.keys(g || {}) } };
     } catch (err) { return handleError(reply, err, 'getGroupMembers'); }
   });
 

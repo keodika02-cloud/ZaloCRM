@@ -60,14 +60,21 @@ export async function groupRoutes(app: FastifyInstance) {
 
       // 3. Merge: process all memberDetails entries regardless of key format
       const members: any[] = [];
-      if (memberDetails && typeof memberDetails === 'object' && !Array.isArray(memberDetails)) {
-        for (const [key, detail] of Object.entries(memberDetails)) {
+
+      // Check for nested profiles structure
+      const profiles = memberDetails?.profiles || memberDetails?.unchangeds_profile || {};
+      const keysToCheck = Object.keys(profiles).length > 0 ? profiles : memberDetails;
+
+      if (keysToCheck && typeof keysToCheck === 'object' && !Array.isArray(keysToCheck)) {
+        for (const [key, detail] of Object.entries(keysToCheck)) {
           if (!detail || typeof detail !== 'object') continue;
           const d = detail as any;
           const id = d.id || d.uid || d.zaloId || key.replace(/_0$/, '');
-          const name = d.displayName || d.nickName || d.dName || d.name || d.fullName || d.title || key;
+          const name = d.displayName || d.nickName || d.dName || d.name || d.fullName || d.title || '';
           const avatar = d.avatar || d.avt || d.fullAvt || d.avatarUrl || '';
-          members.push({ id, name, avatar });
+          if (id && !members.find(m => m.id === id)) {
+            members.push({ id, name: name || key, avatar });
+          }
         }
       }
       
@@ -78,9 +85,9 @@ export async function groupRoutes(app: FastifyInstance) {
         }
       }
 
-      const sampleKeys = Object.keys(memberDetails || {}).slice(0, 3);
-      const sampleVal = sampleKeys.length > 0 ? memberDetails[sampleKeys[0]] : null;
-      return { members, total: g?.totalMember || members.length, _debug: { memberIds: memberIds.slice(0,3), groupKeys: Object.keys(g || {}).slice(0,10), sampleKeys, sampleVal, totalMemberIds: memberIds.length } };
+      const rootKeys = Object.keys(memberDetails || {});
+      const profileKeys = memberDetails?.profiles ? Object.keys(memberDetails.profiles).slice(0,3) : [];
+      return { members, total: g?.totalMember || members.length, _debug: { memberIds: memberIds.slice(0,3), rootKeys, profileKeys, gKeys: Object.keys(g || {}).slice(0,5) } };
     } catch (err) { return handleError(reply, err, 'getGroupMembers'); }
   });
 

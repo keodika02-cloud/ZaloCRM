@@ -248,26 +248,33 @@ export function useChat() {
         else if (data.message.contentType === 'image') body = '🖼️ Ảnh';
         else if (data.message.contentType === 'video') body = '🎥 Video';
         else if (data.message.contentType === 'sticker') body = '🎴 Sticker';
-        else if (data.message.contentType === 'voice') body = '🎤 Tin nhắn thoại';
+        else if (data.message.contentType === 'voice') body = '🎤 Ghi âm';
+        else if (data.message.contentType === 'link') body = `🔗 ${p.title || 'Liên kết'}`;
         else if (p.title) body = p.title;
         else body = 'File đính kèm';
       } catch { body = 'Tin nhắn mới'; }
     }
     if (body.length > 120) body = body.slice(0, 117) + '...';
 
+    try {
+      if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+    } catch {}
+
     const notif = new Notification(sender, {
       body,
       icon: '/brand/zalocrm-logo.png',
-      tag: data.conversationId, // group by conversation
+      badge: '/brand/zalocrm-logo.png',
+      tag: data.conversationId,
+      requireInteraction: true,
+      silent: false,
     });
     notif.onclick = () => {
       window.focus();
-      if (typeof window !== 'undefined') {
-        // Navigate to chat
-        window.dispatchEvent(new CustomEvent('notif:open-chat', { detail: data.conversationId }));
-      }
+      window.dispatchEvent(new CustomEvent('notif:open-chat', { detail: data.conversationId }));
       notif.close();
     };
+    // Auto-close after 8 seconds
+    setTimeout(() => notif.close(), 8000);
   }
 
   function playNotificationSound() {

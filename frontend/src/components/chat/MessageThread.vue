@@ -177,7 +177,11 @@
                 @click="showLinkParentDialog = true"
               />
               <v-divider />
-              <v-list-item prepend-icon="mdi-bell-off-outline" title="Tắt thông báo" @click="toast.push('Mute: chưa implement')" />
+              <v-list-item
+                :prepend-icon="isAccountMuted ? 'mdi-bell-ring-outline' : 'mdi-bell-off-outline'"
+                :title="isAccountMuted ? 'Bật thông báo nick này' : 'Tắt thông báo nick này'"
+                @click="toggleAccountMute"
+              />
               <v-list-item prepend-icon="mdi-flag-outline" title="Báo cáo" @click="toast.push('Report: chưa implement')" />
             </v-list>
           </v-menu>
@@ -591,6 +595,25 @@ const emit = defineEmits<{
 }>();
 
 const toast = useToast();
+const isAccountMuted = computed(() => {
+  const accId = props.conversation?.zaloAccount?.id;
+  if (!accId) return false;
+  try {
+    const muted = JSON.parse(localStorage.getItem('mutedNotifAccounts') || '[]');
+    return muted.includes(accId);
+  } catch { return false; }
+});
+function toggleAccountMute() {
+  const accId = props.conversation?.zaloAccount?.id;
+  if (!accId) return;
+  try {
+    const muted = JSON.parse(localStorage.getItem('mutedNotifAccounts') || '[]');
+    const idx = muted.indexOf(accId);
+    if (idx >= 0) muted.splice(idx, 1);
+    else muted.push(accId);
+    localStorage.setItem('mutedNotifAccounts', JSON.stringify(muted));
+  } catch {}
+}
 const inputText = ref('');
 const messagesContainer = ref<HTMLElement | null>(null);
 const previewImageUrl = ref('');

@@ -236,10 +236,18 @@ export function useChat() {
     document.addEventListener('click', tryRequest, { once: true });
   }
 
-  function showDesktopNotification(data: { message: Message; conversationId: string }) {
+  function showDesktopNotification(data: { message: Message; conversationId: string; accountId?: string }) {
     if (typeof window === 'undefined' || !('Notification' in window)) return;
     if (Notification.permission !== 'granted') return;
     if (localStorage.getItem('desktopNotif') === 'off') return;
+
+    // Check if this account is muted
+    if (data.accountId) {
+      try {
+        const muted = JSON.parse(localStorage.getItem('mutedNotifAccounts') || '[]');
+        if (muted.includes(data.accountId)) return;
+      } catch {}
+    }
 
     const sender = data.message.senderName || 'Tin nhắn mới';
 
@@ -710,7 +718,7 @@ export function useChat() {
 
         // Desktop notification
         if (isHidden || isDifferentConv) {
-          showDesktopNotification(data);
+          showDesktopNotification({ ...data, accountId: (data as any).accountId });
         }
       }
 

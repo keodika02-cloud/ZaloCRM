@@ -89,13 +89,7 @@ export async function groupRoutes(app: FastifyInstance) {
         }
       }
 
-      return { members, total: g?.totalMember || members.length, _debug: { 
-        memberIds: memberIds.slice(0,3), 
-        rootKeys: Object.keys(memberDetails || {}),
-        profilesCount: Object.keys(memberDetails?.profiles || {}).length,
-        unChangedCount: Object.keys(memberDetails?.unchangeds_profile || {}).length,
-        membersCount: members.length,
-      } };
+      return { members, total: g?.totalMember || members.length };
     } catch (err) { return handleError(reply, err, 'getGroupMembers'); }
   });
 

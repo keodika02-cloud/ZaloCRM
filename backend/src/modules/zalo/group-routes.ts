@@ -64,7 +64,7 @@ export async function groupRoutes(app: FastifyInstance) {
           // Last resort: use first string value
           if (!name) {
             const vals = Object.values(detail);
-            name = vals.find((v: any) => typeof v === 'string' && v.length > 1) || '';
+            name = (vals.find((v: any) => typeof v === 'string' && v.length > 1) as string) || '';
           }
         }
         return { id, name: name || String(id), avatar };

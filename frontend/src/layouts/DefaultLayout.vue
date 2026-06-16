@@ -88,7 +88,7 @@
             🔔 Thông báo
             <v-spacer />
             <v-switch
-              v-model="notifEnabled"
+              :model-value="notifEnabled"
               density="compact"
               hide-details
               color="primary"

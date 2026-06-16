@@ -79,7 +79,7 @@
       <!-- Notification panel (gộp global + per-account) -->
       <v-menu :close-on-content-click="false">
         <template #activator="{ props: act }">
-          <v-btn icon variant="text" v-bind="act" :title="notifEnabled ? 'Thông báo đang bật' : 'Thông báo đang tắt'">
+          <v-btn icon variant="text" v-bind="act" class="notif-bell-btn" :class="{ pulse: notifEnabled && mutedAccounts.length < zaloAccList.length }" :title="notifEnabled ? 'Thông báo đang bật' : 'Thông báo đang tắt'">
             <v-icon size="18">{{ notifEnabled && (zaloAccList.length === 0 || mutedAccounts.length < zaloAccList.length) ? 'mdi-bell-ring-outline' : 'mdi-bell-off-outline' }}</v-icon>
           </v-btn>
         </template>
@@ -104,7 +104,8 @@
               v-for="acc in zaloAccList"
               :key="acc.id"
               :title="acc.displayName || 'Nick ' + acc.id.slice(0,6)"
-              :style="{ opacity: notifEnabled ? 1 : 0.45 }"
+              class="notif-acc-item"
+              :class="{ 'notif-acc-disabled': !notifEnabled }"
               @click="notifEnabled && toggleAccountNotif(acc.id)"
             >
               <template #prepend>
@@ -401,5 +402,26 @@ function logout() {
   .topnav-search {
     display: none;
   }
+}
+
+/* ── Notification panel polish ────────────────────────────── */
+.notif-bell-btn.pulse {
+  animation: bell-pulse 3s ease-in-out infinite;
+}
+@keyframes bell-pulse {
+  0%, 100% { transform: rotate(0); }
+  5%, 15% { transform: rotate(15deg); }
+  10%, 20% { transform: rotate(-15deg); }
+  25% { transform: rotate(0); }
+}
+.notif-acc-item {
+  transition: opacity 0.25s ease, background 0.15s;
+}
+.notif-acc-disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+.notif-acc-item:not(.notif-acc-disabled):hover {
+  background: rgba(var(--v-theme-primary), 0.06);
 }
 </style>

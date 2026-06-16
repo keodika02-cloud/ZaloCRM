@@ -37,8 +37,31 @@ export async function groupRoutes(app: FastifyInstance) {
     try {
       await resolveAccount(accountId, request.user!.orgId);
       if (!(await checkAccess(request, reply, accountId, 'read'))) return;
-      return { members: await zaloOps.getGroupMembersInfo(accountId, groupId) };
-    } catch (err) { return handleError(reply, err, 'getGroupMembersInfo'); }
+
+      // 1. Get group info to extract member IDs
+      const groupInfo: any = await zaloOps.getGroupInfo(accountId, groupId);
+      const g = groupInfo?.gridInfoMap?.[groupId];
+      const memberIds: string[] = Array.isArray(g?.memVerList) ? g.memVerList : (Array.isArray(g?.memList) ? g.memList : []);
+
+      if (memberIds.length === 0) {
+        return { members: [], total: g?.totalMember || 0 };
+      }
+
+      // 2. Get member details (names) from member IDs
+      const memberDetails: any = await zaloOps.getGroupMembersInfo(accountId, memberIds as any);
+
+      // 3. Merge: map member IDs to their details
+      const members = memberIds.map((id: string) => {
+        const detail = memberDetails?.[id] || {};
+        return {
+          id,
+          name: detail.displayName || detail.name || detail.nickName || id,
+          avatar: detail.avatar || '',
+        };
+      });
+
+      return { members, total: g?.totalMember || members.length };
+    } catch (err) { return handleError(reply, err, 'getGroupMembers'); }
   });
 
   // ── Group CRUD ──────────────────────────────────────────────────────────────

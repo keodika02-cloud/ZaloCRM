@@ -851,7 +851,12 @@ async function fetchGroupMembers() {
   try {
     const res = await api.get(`/zalo-accounts/${props.activeZaloAccountId}/groups/${encodeURIComponent(props.externalThreadId)}/members`);
     const membersRaw = res.data.members || res.data;
-    const list = Array.isArray(membersRaw) ? membersRaw : (Array.isArray(res.data) ? res.data : []);
+    let list: any[] = [];
+    if (Array.isArray(membersRaw)) {
+      list = membersRaw;
+    } else if (membersRaw && typeof membersRaw === 'object') {
+      list = Object.values(membersRaw);
+    }
     groupMembers.value = list.map((m: any) => {
       let role = 'member';
       if (m.role === 'owner' || m.role === 'admin') role = 'owner';

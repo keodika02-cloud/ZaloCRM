@@ -76,6 +76,11 @@
         <v-icon size="18">mdi-account-group-outline</v-icon>
       </RouterLink>
 
+      <!-- Desktop notification toggle -->
+      <v-btn icon variant="text" :title="notifEnabled ? 'Tắt thông báo desktop' : 'Bật thông báo desktop'" @click="toggleDesktopNotif">
+        <v-icon size="18">{{ notifEnabled ? 'mdi-bell-ring-outline' : 'mdi-bell-off-outline' }}</v-icon>
+      </v-btn>
+
       <NotificationBell class="icon-btn-wrap" />
 
       <v-menu>
@@ -121,6 +126,12 @@ const authStore = useAuthStore();
 const router = useRouter();
 
 const isDark = ref((localStorage.getItem('theme') || 'smax-light') === 'legacy-dark');
+const notifEnabled = ref(localStorage.getItem('desktopNotif') !== 'off');
+
+function toggleDesktopNotif() {
+  notifEnabled.value = !notifEnabled.value;
+  localStorage.setItem('desktopNotif', notifEnabled.value ? 'on' : 'off');
+}
 
 onMounted(() => {
   const saved = localStorage.getItem('theme') || 'smax-light';

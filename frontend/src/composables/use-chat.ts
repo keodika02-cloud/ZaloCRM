@@ -239,6 +239,7 @@ export function useChat() {
   function showDesktopNotification(data: { message: Message; conversationId: string }) {
     if (typeof window === 'undefined' || !('Notification' in window)) return;
     if (Notification.permission !== 'granted') return;
+    if (localStorage.getItem('desktopNotif') === 'off') return;
 
     const sender = data.message.senderName || 'Tin nhắn mới';
 

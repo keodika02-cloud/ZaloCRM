@@ -51,13 +51,23 @@ export async function groupRoutes(app: FastifyInstance) {
       const memberDetails: any = await zaloOps.getGroupMembersInfo(accountId, memberIds as any);
 
       // 3. Merge: map member IDs to their details
+      // zca-js adds _0 suffix to IDs, try both formats; response is keyed by userId_0
       const members = memberIds.map((id: string) => {
-        const detail = memberDetails?.[id] || {};
-        return {
-          id,
-          name: detail.displayName || detail.name || detail.nickName || id,
-          avatar: detail.avatar || '',
-        };
+        const detail = memberDetails?.[id] || memberDetails?.[`${id}_0`] || {};
+        let name = '';
+        let avatar = '';
+        if (typeof detail === 'string') {
+          name = detail;
+        } else if (typeof detail === 'object') {
+          name = detail.displayName || detail.nickName || detail.dName || detail.name || detail.fullName || detail.title || '';
+          avatar = detail.avatar || detail.avt || detail.fullAvt || detail.avatarUrl || '';
+          // Last resort: use first string value
+          if (!name) {
+            const vals = Object.values(detail);
+            name = vals.find((v: any) => typeof v === 'string' && v.length > 1) || '';
+          }
+        }
+        return { id, name: name || String(id), avatar };
       });
 
       return { members, total: g?.totalMember || members.length };

@@ -79,7 +79,7 @@ export async function groupRoutes(app: FastifyInstance) {
           const finalId = id || key.replace(/_0$/, '');
           if (seen.has(finalId)) continue;
           seen.add(finalId);
-          const avatar = d.avatar || d.avt || d.fullAvt || d.avatarUrl || '';
+          const avatar = d.avatar || d.avt || d.fullAvt || d.avatarUrl || d.s120Avt || d.thumb || d.profilePicture || '';
           members.push({ id: finalId, name: name || key, avatar });
         }
       }
@@ -91,7 +91,14 @@ export async function groupRoutes(app: FastifyInstance) {
         }
       }
 
-      return { members, total: g?.totalMember || members.length };
+      // Debug: show keys from first profile entry
+      let sampleKeys: string[] = [];
+      if (members.length > 0 && profileSources.length > 0) {
+        const firstSource = profileSources[0] as any;
+        const firstKey = Object.keys(firstSource)[0];
+        if (firstKey) sampleKeys = Object.keys(firstSource[firstKey] || {});
+      }
+      return { members, total: g?.totalMember || members.length, _debug: { sampleKeys } };
     } catch (err) { return handleError(reply, err, 'getGroupMembers'); }
   });
 

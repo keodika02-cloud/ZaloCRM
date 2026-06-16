@@ -62,23 +62,25 @@ export async function groupRoutes(app: FastifyInstance) {
       const members: any[] = [];
       const seen = new Set<string>();
 
-      // Collect from all known profile containers
+      // Only use nested profile containers, NOT the root object (which has metadata keys)
       const profileSources = [
         memberDetails?.profiles,
         memberDetails?.unchangeds_profile,
-        memberDetails,
       ].filter(s => s && typeof s === 'object' && !Array.isArray(s));
 
       for (const source of profileSources) {
         for (const [key, detail] of Object.entries(source)) {
           if (!detail || typeof detail !== 'object') continue;
           const d = detail as any;
-          const id = d.id || d.uid || d.zaloId || key.replace(/_0$/, '');
-          if (!id || seen.has(id)) continue;
-          seen.add(id);
+          // Skip entries without identifiable member data
+          const id = d.id || d.uid || d.zaloId || '';
           const name = d.displayName || d.nickName || d.dName || d.name || d.fullName || d.title || '';
+          if (!name && !id) continue;
+          const finalId = id || key.replace(/_0$/, '');
+          if (seen.has(finalId)) continue;
+          seen.add(finalId);
           const avatar = d.avatar || d.avt || d.fullAvt || d.avatarUrl || '';
-          members.push({ id, name: name || key, avatar });
+          members.push({ id: finalId, name: name || key, avatar });
         }
       }
       

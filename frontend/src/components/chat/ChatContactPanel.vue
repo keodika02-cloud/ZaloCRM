@@ -68,6 +68,15 @@
         <span class="ic">📁</span> Files
         <span v-if="(imageBadgeCount + fileBadgeCount)" class="tab-badge">{{ imageBadgeCount + fileBadgeCount }}</span>
       </button>
+      <button
+        v-if="isGroupThread"
+        class="ip-tab"
+        :class="{ active: activeTab === 'members' }"
+        @click="activeTab = 'members'"
+      >
+        <span class="ic">👥</span> TV
+        <span class="tab-badge">{{ props.groupMembersCount ?? groupMembers.length }}</span>
+      </button>
     </nav>
 
     <!-- ════════ Tab content (scroll) ════════ -->
@@ -440,6 +449,26 @@
           </div>
         </v-dialog>
       </div>
+
+      <!-- ══════ TAB: THÀNH VIÊN NHÓM ══════ -->
+      <div v-if="isGroupThread" v-show="activeTab === 'members'" class="tab-pane">
+        <div v-if="groupMembersLoading" class="text-center py-4">
+          <v-progress-circular indeterminate size="24" width="2" color="primary" />
+        </div>
+        <div v-else-if="groupMembers.length === 0" class="tab-empty">
+          <p>Chưa tải được danh sách thành viên</p>
+        </div>
+        <div v-else class="group-members-list">
+          <div v-for="m in groupMembers" :key="m.id" class="group-member-item">
+            <Avatar :name="m.name || m.id" :size="32" :gradient-seed="m.id" class="mr-2" />
+            <div class="flex-grow-1" style="min-width:0">
+              <div class="text-body-2" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ m.name || m.id }}</div>
+            </div>
+            <v-chip v-if="m.role === 'owner'" size="x-small" color="warning" variant="tonal">Owner</v-chip>
+            <v-chip v-else-if="m.role === 'deputy'" size="x-small" color="info" variant="tonal">Deputy</v-chip>
+          </div>
+        </div>
+      </div>
     </div>
 
   </aside>
@@ -466,13 +495,18 @@ import { useUsers } from '@/composables/use-users';
 const props = defineProps<{
   contactId: string | null;
   contact: Contact | null;
-  // Nick CRM đang xem KH này — dùng để xác định Friend row "active" cho per-pair tag.
   activeZaloAccountId?: string | null;
+  threadType?: string | null;
+  externalThreadId?: string | null;
+  groupName?: string | null;
+  groupMembersCount?: number | null;
   aiSummary: string;
   aiSummaryLoading: boolean;
   aiSentiment: AiSentiment | null;
   aiSentimentLoading: boolean;
 }>();
+
+const isGroupThread = computed(() => props.threadType === 'group');
 
 const emit = defineEmits<{
   close: [];
@@ -494,7 +528,7 @@ const {
 const { users, fetchUsers } = useUsers();
 
 // ════════ Tab state (persist sang tab khác KH khác) ════════
-const activeTab = ref<'profile' | 'relations' | 'activity' | 'files'>('profile');
+const activeTab = ref<'profile' | 'relations' | 'activity' | 'files' | 'members'>('profile');
 const fileSubTab = ref<'images' | 'files' | 'links'>('images');
 
 // Info section auto-collapse: mặc định compact (chỉ Tên + SĐT). Click tab Hồ Sơ
@@ -798,6 +832,33 @@ function downloadConvFile(file: ConvFile) {
   window.open(convFileUrl(file), '_blank');
 }
 
+// ── Group members ────────────────────────────────────────────
+interface GroupMember {
+  id: string;
+  name: string;
+  role: string; // owner, deputy, member
+}
+
+const groupMembers = ref<GroupMember[]>([]);
+const groupMembersLoading = ref(false);
+
+async function fetchGroupMembers() {
+  if (!isGroupThread.value || !props.activeZaloAccountId || !props.externalThreadId) return;
+  groupMembersLoading.value = true;
+  try {
+    const res = await api.get(`/zalo-accounts/${props.activeZaloAccountId}/groups/${props.externalThreadId}/members`);
+    groupMembers.value = (res.data.members || []).map((m: any) => ({
+      id: m.id || m.uid || '',
+      name: m.name || m.uid || 'Unknown',
+      role: m.role || m.type === 0 ? 'member' : m.type === 1 ? 'deputy' : 'owner',
+    }));
+  } catch {
+    groupMembers.value = [];
+  } finally {
+    groupMembersLoading.value = false;
+  }
+}
+
 function openLink(url: string) {
   window.open(url, '_blank');
 }
@@ -806,6 +867,11 @@ watch(() => props.contactId, (id) => {
   if (id) fetchConvFiles();
   else { convFiles.value = []; fileBadgeCount.value = 0; imageBadgeCount.value = 0; }
 }, { immediate: true });
+
+// Lazy-load group members when tab clicked
+watch(activeTab, (tab) => {
+  if (tab === 'members' && groupMembers.value.length === 0) fetchGroupMembers();
+});
 </script>
 
 <style scoped>
@@ -1390,6 +1456,24 @@ watch(() => props.contactId, (id) => {
   border: 1px solid var(--smax-grey-200, #ebedf0);
 }
 .conv-link-item:hover {
+  background: var(--smax-grey-100, #f5f6fa);
+}
+
+/* ── Group members list ───────────────────────────────────── */
+.group-members-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.group-member-item {
+  display: flex;
+  align-items: center;
+  padding: 6px 8px;
+  border-radius: 6px;
+  transition: background 0.15s;
+  cursor: default;
+}
+.group-member-item:hover {
   background: var(--smax-grey-100, #f5f6fa);
 }
 </style>

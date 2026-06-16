@@ -469,6 +469,9 @@
         <v-btn icon size="small" class="close-btn" variant="text" @click="closeImagePreview">
           <v-icon size="24">mdi-close</v-icon>
         </v-btn>
+        <v-btn icon size="small" class="rotate-btn" variant="text" @click="rotateImage">
+          <v-icon size="22">mdi-rotate-right</v-icon>
+        </v-btn>
         <div class="image-counter" v-if="imageList.length > 1">{{ imageIndex + 1 }} / {{ imageList.length }}</div>
       </div>
     </v-dialog>
@@ -608,6 +611,7 @@ const imageIndex = computed(() => imageList.value.indexOf(previewImageUrl.value)
 const imgZoom = ref(1);
 const imgPanX = ref(0);
 const imgPanY = ref(0);
+const imgRotate = ref(0);
 const isDragging = ref(false);
 const dragStartX = ref(0);
 const dragStartY = ref(0);
@@ -615,20 +619,26 @@ const panStartX = ref(0);
 const panStartY = ref(0);
 
 const imgStyle = computed(() => ({
-  transform: `scale(${imgZoom.value}) translate(${imgPanX.value / imgZoom.value}px, ${imgPanY.value / imgZoom.value}px)`,
+  transform: `scale(${imgZoom.value}) translate(${imgPanX.value / imgZoom.value}px, ${imgPanY.value / imgZoom.value}px) rotate(${imgRotate.value}deg)`,
   maxWidth: imgZoom.value <= 1 ? '90vw' : 'none',
   maxHeight: imgZoom.value <= 1 ? '85vh' : 'none',
   borderRadius: imgZoom.value > 1 ? '4px' : '12px',
   boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
   objectFit: 'contain' as const,
-  transition: isDragging.value ? 'none' : 'transform 0.2s',
+  transition: isDragging.value ? 'none' : 'transform 0.3s',
 }));
+
+function rotateImage() {
+  imgRotate.value = (imgRotate.value + 90) % 360;
+}
 
 function onWheelZoom(e: WheelEvent) {
   const delta = e.deltaY > 0 ? -0.3 : 0.3;
   imgZoom.value = Math.max(0.5, Math.min(5, imgZoom.value + delta));
   if (imgZoom.value <= 1) { imgPanX.value = 0; imgPanY.value = 0; }
 }
+
+function resetZoom() { imgZoom.value = 1; imgPanX.value = 0; imgPanY.value = 0; imgRotate.value = 0; }
 
 function toggleZoom() {
   if (imgZoom.value > 1) { imgZoom.value = 1; imgPanX.value = 0; imgPanY.value = 0; }
@@ -660,7 +670,6 @@ function nextImage() {
   const idx = imageIndex.value;
   if (idx < imageList.value.length - 1) { previewImageUrl.value = imageList.value[idx + 1]; resetZoom(); }
 }
-function resetZoom() { imgZoom.value = 1; imgPanX.value = 0; imgPanY.value = 0; }
 function closeImagePreview() { previewImageUrl.value = ''; resetZoom(); }
 
 // File preview
@@ -2298,6 +2307,17 @@ onBeforeUnmount(() => { document.removeEventListener('keydown', onKeydown); });
   border-radius: 50% !important;
 }
 .close-btn:hover { background: rgba(0,0,0,0.6) !important; }
+.rotate-btn {
+  position: absolute;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #fff !important;
+  background: rgba(0,0,0,0.4) !important;
+  z-index: 1;
+  border-radius: 50% !important;
+}
+.rotate-btn:hover { background: rgba(0,0,0,0.6) !important; }
 .image-counter {
   position: absolute;
   bottom: 8px;

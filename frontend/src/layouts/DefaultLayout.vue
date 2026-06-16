@@ -81,6 +81,41 @@
         <v-icon size="18">{{ notifEnabled ? 'mdi-bell-ring-outline' : 'mdi-bell-off-outline' }}</v-icon>
       </v-btn>
 
+      <!-- Per-account notification picker -->
+      <v-menu :close-on-content-click="false">
+        <template #activator="{ props: act }">
+          <v-btn icon variant="text" v-bind="act" title="Chọn nick nhận thông báo">
+            <v-icon size="18">mdi-bell-cog-outline</v-icon>
+          </v-btn>
+        </template>
+        <v-card min-width="260">
+          <v-card-title class="text-body-2 pa-3">🔔 Thông báo theo nick</v-card-title>
+          <v-divider />
+          <v-list density="compact" max-height="300" style="overflow-y:auto">
+            <v-list-item v-if="zaloAccList.length === 0">
+              <v-list-item-subtitle class="text-caption text-grey">Đang tải danh sách nick...</v-list-item-subtitle>
+            </v-list-item>
+            <v-list-item
+              v-for="acc in zaloAccList"
+              :key="acc.id"
+              :title="acc.displayName || 'Nick ' + acc.id.slice(0,6)"
+              @click="toggleAccountNotif(acc.id)"
+            >
+              <template #prepend>
+                <v-icon :color="mutedAccounts.includes(acc.id) ? 'grey' : 'primary'" size="18">
+                  {{ mutedAccounts.includes(acc.id) ? 'mdi-bell-off-outline' : 'mdi-bell-ring-outline' }}
+                </v-icon>
+              </template>
+              <template #append>
+                <v-icon size="14" :color="mutedAccounts.includes(acc.id) ? 'grey' : 'success'">
+                  {{ mutedAccounts.includes(acc.id) ? 'mdi-volume-off' : 'mdi-volume-high' }}
+                </v-icon>
+              </template>
+            </v-list-item>
+          </v-list>
+        </v-card>
+      </v-menu>
+
       <NotificationBell class="icon-btn-wrap" />
 
       <v-menu>
@@ -119,24 +154,35 @@ import { useRouter } from 'vue-router';
 import NotificationBell from '@/components/NotificationBell.vue';
 import GlobalSearch from '@/components/GlobalSearch.vue';
 import ToastContainer from '@/components/ui/ToastContainer.vue';
+import { useZaloAccounts } from '@/composables/use-zalo-accounts';
 
 const theme = useTheme();
 const route = useRoute();
 const authStore = useAuthStore();
 const router = useRouter();
+const { accounts: zaloAccList, fetchAccounts: fetchZaloAccs } = useZaloAccounts();
 
 const isDark = ref((localStorage.getItem('theme') || 'smax-light') === 'legacy-dark');
 const notifEnabled = ref(localStorage.getItem('desktopNotif') !== 'off');
+const mutedAccounts = ref<string[]>(JSON.parse(localStorage.getItem('mutedNotifAccounts') || '[]'));
 
 function toggleDesktopNotif() {
   notifEnabled.value = !notifEnabled.value;
   localStorage.setItem('desktopNotif', notifEnabled.value ? 'on' : 'off');
 }
 
+function toggleAccountNotif(accId: string) {
+  const idx = mutedAccounts.value.indexOf(accId);
+  if (idx >= 0) mutedAccounts.value.splice(idx, 1);
+  else mutedAccounts.value.push(accId);
+  localStorage.setItem('mutedNotifAccounts', JSON.stringify(mutedAccounts.value));
+}
+
 onMounted(() => {
   const saved = localStorage.getItem('theme') || 'smax-light';
   theme.global.name.value = saved;
   isDark.value = saved === 'legacy-dark';
+  fetchZaloAccs();
 });
 
 interface NavTab {

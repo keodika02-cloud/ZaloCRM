@@ -843,16 +843,25 @@ const groupMembers = ref<GroupMember[]>([]);
 const groupMembersLoading = ref(false);
 
 async function fetchGroupMembers() {
-  if (!isGroupThread.value || !props.activeZaloAccountId || !props.externalThreadId) return;
+  if (!isGroupThread.value || !props.activeZaloAccountId || !props.externalThreadId) {
+    console.warn('[panel-members] Skipping fetch - missing data', { isGroup: isGroupThread.value, accId: props.activeZaloAccountId, extId: props.externalThreadId });
+    return;
+  }
   groupMembersLoading.value = true;
   try {
-    const res = await api.get(`/zalo-accounts/${props.activeZaloAccountId}/groups/${props.externalThreadId}/members`);
-    groupMembers.value = (res.data.members || []).map((m: any) => ({
-      id: m.id || m.uid || '',
-      name: m.name || m.uid || 'Unknown',
-      role: m.role || m.type === 0 ? 'member' : m.type === 1 ? 'deputy' : 'owner',
-    }));
-  } catch {
+    const res = await api.get(`/zalo-accounts/${props.activeZaloAccountId}/groups/${encodeURIComponent(props.externalThreadId)}/members`);
+    groupMembers.value = (res.data.members || []).map((m: any) => {
+      let role = 'member';
+      if (m.role === 'owner' || m.role === 'admin') role = 'owner';
+      else if (m.role === 'deputy' || m.role === 'moderator') role = 'deputy';
+      return {
+        id: m.id || m.uid || '',
+        name: m.name || m.displayName || m.uid || 'Unknown',
+        role,
+      };
+    });
+  } catch (e: any) {
+    console.error('[panel-members] Fetch error:', e?.response?.data || e);
     groupMembers.value = [];
   } finally {
     groupMembersLoading.value = false;

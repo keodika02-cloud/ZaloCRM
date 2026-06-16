@@ -244,8 +244,11 @@ export function useChat() {
     // Check if this account is muted
     if (data.accountId) {
       try {
-        const muted = JSON.parse(localStorage.getItem('mutedNotifAccounts') || '[]');
-        if (muted.includes(data.accountId)) return;
+        const muted: string[] = JSON.parse(localStorage.getItem('mutedNotifAccounts') || '[]');
+        if (muted.includes(data.accountId)) {
+          console.log('[notif] Account muted, skipping:', data.accountId, muted);
+          return;
+        }
       } catch {}
     }
 

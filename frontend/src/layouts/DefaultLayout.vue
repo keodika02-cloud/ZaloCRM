@@ -76,20 +76,25 @@
         <v-icon size="18">mdi-account-group-outline</v-icon>
       </RouterLink>
 
-      <!-- Desktop notification toggle -->
-      <v-btn icon variant="text" :title="notifEnabled ? 'Tắt thông báo desktop' : 'Bật thông báo desktop'" @click="toggleDesktopNotif">
-        <v-icon size="18">{{ notifEnabled ? 'mdi-bell-ring-outline' : 'mdi-bell-off-outline' }}</v-icon>
-      </v-btn>
-
-      <!-- Per-account notification picker -->
+      <!-- Notification panel (gộp global + per-account) -->
       <v-menu :close-on-content-click="false">
         <template #activator="{ props: act }">
-          <v-btn icon variant="text" v-bind="act" title="Chọn nick nhận thông báo">
-            <v-icon size="18">mdi-bell-cog-outline</v-icon>
+          <v-btn icon variant="text" v-bind="act" :title="notifEnabled ? 'Tắt thông báo' : 'Bật thông báo'">
+            <v-icon size="18">{{ notifEnabled ? 'mdi-bell-ring-outline' : 'mdi-bell-off-outline' }}</v-icon>
           </v-btn>
         </template>
         <v-card min-width="260">
-          <v-card-title class="text-body-2 pa-3">🔔 Thông báo theo nick</v-card-title>
+          <v-card-title class="text-body-2 pa-3 d-flex align-center">
+            🔔 Thông báo
+            <v-spacer />
+            <v-switch
+              v-model="notifEnabled"
+              density="compact"
+              hide-details
+              color="primary"
+              @update:model-value="toggleDesktopNotif"
+            />
+          </v-card-title>
           <v-divider />
           <v-list density="compact" max-height="300" style="overflow-y:auto">
             <v-list-item v-if="zaloAccList.length === 0">

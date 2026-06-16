@@ -80,7 +80,7 @@
       <v-menu :close-on-content-click="false">
         <template #activator="{ props: act }">
           <v-btn icon variant="text" v-bind="act" :title="notifEnabled ? 'Thông báo đang bật' : 'Thông báo đang tắt'">
-            <v-icon size="18">{{ notifEnabled && mutedAccounts.length === 0 ? 'mdi-bell-ring-outline' : 'mdi-bell-off-outline' }}</v-icon>
+            <v-icon size="18">{{ notifEnabled && (zaloAccList.length === 0 || mutedAccounts.length < zaloAccList.length) ? 'mdi-bell-ring-outline' : 'mdi-bell-off-outline' }}</v-icon>
           </v-btn>
         </template>
         <v-card min-width="260">

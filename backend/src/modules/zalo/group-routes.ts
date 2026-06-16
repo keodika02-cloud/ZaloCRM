@@ -78,7 +78,9 @@ export async function groupRoutes(app: FastifyInstance) {
         return { id, name: name || String(id), avatar };
       });
 
-      return { members, total: g?.totalMember || members.length, _debug: { memberIds, groupKeys: Object.keys(g || {}) } };
+      const sampleKeys = Object.keys(memberDetails || {}).slice(0, 3);
+      const sampleVal = sampleKeys.length > 0 ? memberDetails[sampleKeys[0]] : null;
+      return { members, total: g?.totalMember || members.length, _debug: { memberIds: memberIds.slice(0,3), groupKeys: Object.keys(g || {}).slice(0,10), sampleKeys, sampleVal, totalMemberIds: memberIds.length } };
     } catch (err) { return handleError(reply, err, 'getGroupMembers'); }
   });
 

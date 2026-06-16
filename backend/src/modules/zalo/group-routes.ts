@@ -58,23 +58,27 @@ export async function groupRoutes(app: FastifyInstance) {
         memberDetails = await zaloOps.getGroupMembersInfo(accountId, memberIds as any);
       } catch { /* ignore fetch errors */ }
 
-      // 3. Merge: process all memberDetails entries regardless of key format
+      // 3. Merge: process all memberDetails entries from profiles + unchangeds_profile
       const members: any[] = [];
+      const seen = new Set<string>();
 
-      // Check for nested profiles structure
-      const profiles = memberDetails?.profiles || memberDetails?.unchangeds_profile || {};
-      const keysToCheck = Object.keys(profiles).length > 0 ? profiles : memberDetails;
+      // Collect from all known profile containers
+      const profileSources = [
+        memberDetails?.profiles,
+        memberDetails?.unchangeds_profile,
+        memberDetails,
+      ].filter(s => s && typeof s === 'object' && !Array.isArray(s));
 
-      if (keysToCheck && typeof keysToCheck === 'object' && !Array.isArray(keysToCheck)) {
-        for (const [key, detail] of Object.entries(keysToCheck)) {
+      for (const source of profileSources) {
+        for (const [key, detail] of Object.entries(source)) {
           if (!detail || typeof detail !== 'object') continue;
           const d = detail as any;
           const id = d.id || d.uid || d.zaloId || key.replace(/_0$/, '');
+          if (!id || seen.has(id)) continue;
+          seen.add(id);
           const name = d.displayName || d.nickName || d.dName || d.name || d.fullName || d.title || '';
           const avatar = d.avatar || d.avt || d.fullAvt || d.avatarUrl || '';
-          if (id && !members.find(m => m.id === id)) {
-            members.push({ id, name: name || key, avatar });
-          }
+          members.push({ id, name: name || key, avatar });
         }
       }
       
@@ -85,9 +89,13 @@ export async function groupRoutes(app: FastifyInstance) {
         }
       }
 
-      const rootKeys = Object.keys(memberDetails || {});
-      const profileKeys = memberDetails?.profiles ? Object.keys(memberDetails.profiles).slice(0,3) : [];
-      return { members, total: g?.totalMember || members.length, _debug: { memberIds: memberIds.slice(0,3), rootKeys, profileKeys, gKeys: Object.keys(g || {}).slice(0,5) } };
+      return { members, total: g?.totalMember || members.length, _debug: { 
+        memberIds: memberIds.slice(0,3), 
+        rootKeys: Object.keys(memberDetails || {}),
+        profilesCount: Object.keys(memberDetails?.profiles || {}).length,
+        unChangedCount: Object.keys(memberDetails?.unchangeds_profile || {}).length,
+        membersCount: members.length,
+      } };
     } catch (err) { return handleError(reply, err, 'getGroupMembers'); }
   });
 

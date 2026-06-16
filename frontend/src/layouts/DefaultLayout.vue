@@ -79,8 +79,8 @@
       <!-- Notification panel (gộp global + per-account) -->
       <v-menu :close-on-content-click="false">
         <template #activator="{ props: act }">
-          <v-btn icon variant="text" v-bind="act" :title="notifEnabled ? 'Tắt thông báo' : 'Bật thông báo'">
-            <v-icon size="18">{{ notifEnabled ? 'mdi-bell-ring-outline' : 'mdi-bell-off-outline' }}</v-icon>
+          <v-btn icon variant="text" v-bind="act" :title="notifEnabled ? 'Thông báo đang bật' : 'Thông báo đang tắt'">
+            <v-icon size="18">{{ notifEnabled && mutedAccounts.length === 0 ? 'mdi-bell-ring-outline' : 'mdi-bell-off-outline' }}</v-icon>
           </v-btn>
         </template>
         <v-card min-width="260">

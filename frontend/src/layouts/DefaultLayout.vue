@@ -104,7 +104,8 @@
               v-for="acc in zaloAccList"
               :key="acc.id"
               :title="acc.displayName || 'Nick ' + acc.id.slice(0,6)"
-              @click="toggleAccountNotif(acc.id)"
+              :style="{ opacity: notifEnabled ? 1 : 0.45 }"
+              @click="notifEnabled && toggleAccountNotif(acc.id)"
             >
               <template #prepend>
                 <v-icon :color="mutedAccounts.includes(acc.id) ? 'grey' : 'primary'" size="18">

@@ -58,25 +58,25 @@ export async function groupRoutes(app: FastifyInstance) {
         memberDetails = await zaloOps.getGroupMembersInfo(accountId, memberIds as any);
       } catch { /* ignore fetch errors */ }
 
-      // 3. Merge: map member IDs to their details
-      const members = memberIds.map((id: string) => {
-        // Try memberInfo from getGroupInfo first, then getGroupMembersInfo
-        const detail = memberInfoMap?.[id] || memberInfoMap?.[`${id}_0`]
-          || memberDetails?.[id] || memberDetails?.[`${id}_0`] || {};
-        let name = '';
-        let avatar = '';
-        if (typeof detail === 'string') {
-          name = detail;
-        } else if (typeof detail === 'object') {
-          name = detail.displayName || detail.nickName || detail.dName || detail.name || detail.fullName || detail.title || '';
-          avatar = detail.avatar || detail.avt || detail.fullAvt || detail.avatarUrl || '';
-          if (!name) {
-            const vals = Object.values(detail);
-            name = (vals.find((v: any) => typeof v === 'string' && v.length > 1) as string) || '';
-          }
+      // 3. Merge: process all memberDetails entries regardless of key format
+      const members: any[] = [];
+      if (memberDetails && typeof memberDetails === 'object' && !Array.isArray(memberDetails)) {
+        for (const [key, detail] of Object.entries(memberDetails)) {
+          if (!detail || typeof detail !== 'object') continue;
+          const d = detail as any;
+          const id = d.id || d.uid || d.zaloId || key.replace(/_0$/, '');
+          const name = d.displayName || d.nickName || d.dName || d.name || d.fullName || d.title || key;
+          const avatar = d.avatar || d.avt || d.fullAvt || d.avatarUrl || '';
+          members.push({ id, name, avatar });
         }
-        return { id, name: name || String(id), avatar };
-      });
+      }
+      
+      // Fallback: if no members found from details, use memberIds as names
+      if (members.length === 0) {
+        for (const id of memberIds) {
+          members.push({ id, name: String(id), avatar: '' });
+        }
+      }
 
       const sampleKeys = Object.keys(memberDetails || {}).slice(0, 3);
       const sampleVal = sampleKeys.length > 0 ? memberDetails[sampleKeys[0]] : null;

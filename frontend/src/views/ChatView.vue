@@ -58,10 +58,10 @@
       @refresh-thread="selectedConvId && fetchMessages(selectedConvId)"
     />
 
-    <!-- COL 4: contact info panel (chỉ hiện khi có contact) -->
+    <!-- COL 4: contact info panel -->
     <ChatContactPanel
-      v-if="showContactPanel && selectedConv?.contact"
-      :contact-id="selectedConv.contact.id"
+      v-if="showContactPanel && (selectedConv?.contact || selectedConv?.threadType === 'group')"
+      :contact-id="selectedConv.contact?.id ?? ''"
       :contact="selectedConv.contact"
       :active-zalo-account-id="selectedConv.zaloAccount?.id ?? null"
       :thread-type="selectedConv.threadType"

@@ -680,7 +680,7 @@ function onChangeCareStatus(value: CareStatusValue) {
 
 // ════════ Header name (Avatar component handle initials + gender + gradient) ════════
 const headerFullName = computed(() =>
-  props.contact?.crmName || props.contact?.fullName || 'Khách hàng',
+  props.contact?.crmName || props.contact?.fullName || props.groupName || 'Khách hàng',
 );
 
 // Lead score tier để màu badge overlay trên avatar (thấp/TB/cao)
@@ -843,13 +843,16 @@ const groupMembers = ref<GroupMember[]>([]);
 const groupMembersLoading = ref(false);
 
 async function fetchGroupMembers() {
-  if (!isGroupThread.value || !props.activeZaloAccountId || !props.externalThreadId) {
-    console.warn('[panel-members] Skipping fetch - missing data', { isGroup: isGroupThread.value, accId: props.activeZaloAccountId, extId: props.externalThreadId });
+  const accId = props.activeZaloAccountId;
+  const extId = props.externalThreadId;
+  console.log('[panel-members] Debug:', { isGroup: isGroupThread.value, accId, extId, threadType: props.threadType });
+  if (!isGroupThread.value || !accId || !extId) {
+    console.warn('[panel-members] Skipping - missing data');
     return;
   }
   groupMembersLoading.value = true;
   try {
-    const res = await api.get(`/zalo-accounts/${props.activeZaloAccountId}/groups/${encodeURIComponent(props.externalThreadId)}/members`);
+    const res = await api.get(`/zalo-accounts/${accId}/groups/${encodeURIComponent(extId)}/members`);
     const membersRaw = res.data.members || res.data;
     let list: any[] = [];
     if (Array.isArray(membersRaw)) {

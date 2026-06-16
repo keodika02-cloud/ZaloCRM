@@ -239,42 +239,48 @@ export function useChat() {
   function showDesktopNotification(data: { message: Message; conversationId: string }) {
     if (typeof window === 'undefined' || !('Notification' in window)) return;
     if (Notification.permission !== 'granted') return;
+
     const sender = data.message.senderName || 'Tin nhắn mới';
-    let body = data.message.content || '';
-    if (body.startsWith('{')) {
-      try {
-        const p = JSON.parse(body);
-        if (p.name || p.fileName) body = `📎 ${p.name || p.fileName}`;
-        else if (data.message.contentType === 'image') body = '🖼️ Ảnh';
-        else if (data.message.contentType === 'video') body = '🎥 Video';
-        else if (data.message.contentType === 'sticker') body = '🎴 Sticker';
-        else if (data.message.contentType === 'voice') body = '🎤 Ghi âm';
-        else if (data.message.contentType === 'link') body = `🔗 ${p.title || 'Liên kết'}`;
-        else if (p.title) body = p.title;
-        else body = 'File đính kèm';
-      } catch { body = 'Tin nhắn mới'; }
+
+    // Batch notifications per sender with debounce
+    const key = `notif:${sender}`;
+    const existing = notifBatch.get(key);
+    if (existing) {
+      existing.count++;
+      existing.conversationId = data.conversationId; // latest conversation
+    } else {
+      notifBatch.set(key, { sender, conversationId: data.conversationId, count: 1 });
     }
-    if (body.length > 120) body = body.slice(0, 117) + '...';
 
-    try {
-      if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
-    } catch {}
+    // Debounce: fire after 2s of no new messages from this sender
+    if (notifTimer) clearTimeout(notifTimer);
+    notifTimer = setTimeout(flushNotificationBatch, 2000);
+  }
 
-    const notif = new Notification(sender, {
-      body,
-      icon: '/brand/zalocrm-logo.png',
-      badge: '/brand/zalocrm-logo.png',
-      tag: data.conversationId,
-      requireInteraction: true,
-      silent: false,
-    });
-    notif.onclick = () => {
-      window.focus();
-      window.dispatchEvent(new CustomEvent('notif:open-chat', { detail: data.conversationId }));
-      notif.close();
-    };
-    // Auto-close after 8 seconds
-    setTimeout(() => notif.close(), 8000);
+  const notifBatch = new Map<string, { sender: string; conversationId: string; count: number }>();
+  let notifTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function flushNotificationBatch() {
+    for (const [, batch] of notifBatch) {
+      const body = batch.count > 1 ? `${batch.count} tin nhắn mới` : '1 tin nhắn mới';
+      try { if (navigator.vibrate) navigator.vibrate([200, 100, 200]); } catch {}
+
+      const notif = new Notification(batch.sender, {
+        body,
+        icon: '/brand/zalocrm-logo.png',
+        badge: '/brand/zalocrm-logo.png',
+        tag: batch.sender, // group by sender name, not conversation
+        requireInteraction: true,
+        silent: false,
+      });
+      notif.onclick = () => {
+        window.focus();
+        window.dispatchEvent(new CustomEvent('notif:open-chat', { detail: batch.conversationId }));
+        notif.close();
+      };
+      setTimeout(() => notif.close(), 8000);
+    }
+    notifBatch.clear();
   }
 
   function playNotificationSound() {

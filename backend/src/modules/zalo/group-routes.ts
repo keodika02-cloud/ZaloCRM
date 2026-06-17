@@ -99,12 +99,16 @@ export async function groupRoutes(app: FastifyInstance) {
           );
           userInfoResults.forEach((r, i) => {
             if (r.status === 'fulfilled' && r.value) {
-              const info: any = r.value;
+              const raw: any = r.value;
+              // getUserInfo returns { changed_profiles: { [uid]: { avatar, zaloName, ... } } }
+              const profiles = raw?.changed_profiles || {};
+              const uid = members[i].id;
+              const profile = profiles[uid] || profiles[`${uid}_0`] || {};
               if (!members[i].avatar) {
-                members[i].avatar = info.avatarUrl || info.avt || info.fullAvt || info.avatar || '';
+                members[i].avatar = profile.avatar || profile.avatarUrl || '';
               }
               if (!members[i].name || members[i].name === members[i].id) {
-                members[i].name = info.displayName || info.name || info.dName || info.fullName || members[i].name;
+                members[i].name = profile.zaloName || profile.zalo_name || profile.displayName || profile.display_name || members[i].name;
               }
             }
           });

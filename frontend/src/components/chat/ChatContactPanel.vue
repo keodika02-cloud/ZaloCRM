@@ -40,15 +40,19 @@
         class="ip-tab"
         :class="{ active: activeTab === 'profile' }"
         @click="activeTab = 'profile'"
+        title="Hồ sơ"
       >
-        <span class="ic">👤</span> Hồ sơ
+        <v-icon size="18" color="inherit">mdi-account-outline</v-icon>
+        <span class="tab-label">HS</span>
       </button>
       <button
         class="ip-tab"
         :class="{ active: activeTab === 'relations' }"
         @click="activeTab = 'relations'"
+        title="Quan hệ"
       >
-        <span class="ic">🔗</span> Quan hệ
+        <v-icon size="18" color="inherit">mdi-link-variant</v-icon>
+        <span class="tab-label">QH</span>
         <span v-if="relationBadgeCount" class="tab-badge">{{ relationBadgeCount }}</span>
       </button>
       <button
@@ -56,16 +60,20 @@
         :class="{ active: activeTab === 'activity', 'badge-bump': badgeBump }"
         data-fly-target="activity-tab"
         @click="activeTab = 'activity'"
+        title="Lịch hẹn"
       >
-        <span class="ic">📅</span> Lịch hẹn
+        <v-icon size="18" color="inherit">mdi-calendar-clock-outline</v-icon>
+        <span class="tab-label">LH</span>
         <span v-if="activityBadgeCount || pendingAptBump" class="tab-badge">{{ (activityBadgeCount ?? 0) + pendingAptBump }}</span>
       </button>
       <button
         class="ip-tab"
         :class="{ active: activeTab === 'files' }"
         @click="activeTab = 'files'"
+        title="Files"
       >
-        <span class="ic">📁</span> Files
+        <v-icon size="18" color="inherit">mdi-folder-multiple-outline</v-icon>
+        <span class="tab-label">File</span>
         <span v-if="(imageBadgeCount + fileBadgeCount)" class="tab-badge">{{ imageBadgeCount + fileBadgeCount }}</span>
       </button>
       <button
@@ -73,8 +81,10 @@
         class="ip-tab"
         :class="{ active: activeTab === 'members' }"
         @click="activeTab = 'members'"
+        title="Thành viên"
       >
-        <span class="ic">👥</span> TV
+        <v-icon size="18" color="inherit">mdi-account-group-outline</v-icon>
+        <span class="tab-label">TV</span>
         <span class="tab-badge">{{ props.groupMembersCount ?? groupMembers.length }}</span>
       </button>
     </nav>
@@ -990,18 +1000,22 @@ watch(activeTab, (tab) => {
 .ip-tab {
   flex: 1;
   background: transparent; border: none;
-  padding: 9px 7px;
+  padding: 5px 3px 3px;
   cursor: pointer;
-  font-size: 12.5px; font-weight: 500;
   color: var(--smax-grey-700);
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
-  display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
   font-family: inherit;
   position: relative;
-  transition: color 0.15s;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
 }
-.ip-tab .ic { font-size: 13px; line-height: 1; }
+.ip-tab .ic { font-size: 13px; line-height: 1; display: none; }
+.ip-tab .tab-label {
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1;
+}
 .ip-tab:hover { color: var(--smax-primary); background: var(--smax-grey-100); }
 .ip-tab.active {
   color: var(--smax-primary);
@@ -1011,14 +1025,14 @@ watch(activeTab, (tab) => {
 }
 .tab-badge {
   position: absolute;
-  top: 5px; right: 9px;
+  top: 1px; right: 2px;
   background: var(--smax-primary);
   color: white;
-  font-size: 10px; font-weight: 700;
-  padding: 0 5px;
+  font-size: 9px; font-weight: 700;
+  padding: 0 4px;
   border-radius: 8px;
-  min-width: 16px;
-  line-height: 14px;
+  min-width: 14px;
+  line-height: 13px;
   text-align: center;
   transition: transform 0.18s ease;
 }

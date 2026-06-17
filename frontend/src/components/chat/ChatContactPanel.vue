@@ -43,7 +43,7 @@
         title="Hồ sơ"
       >
         <v-icon size="18" color="inherit">mdi-account-outline</v-icon>
-        <span class="tab-label">HS</span>
+        <span class="tab-label">Hồ sơ</span>
       </button>
       <button
         class="ip-tab"
@@ -52,7 +52,7 @@
         title="Quan hệ"
       >
         <v-icon size="18" color="inherit">mdi-link-variant</v-icon>
-        <span class="tab-label">QH</span>
+        <span class="tab-label">Quan hệ</span>
         <span v-if="relationBadgeCount" class="tab-badge">{{ relationBadgeCount }}</span>
       </button>
       <button
@@ -63,7 +63,7 @@
         title="Lịch hẹn"
       >
         <v-icon size="18" color="inherit">mdi-calendar-clock-outline</v-icon>
-        <span class="tab-label">LH</span>
+        <span class="tab-label">Lịch hẹn</span>
         <span v-if="activityBadgeCount || pendingAptBump" class="tab-badge">{{ (activityBadgeCount ?? 0) + pendingAptBump }}</span>
       </button>
       <button
@@ -73,7 +73,7 @@
         title="Files"
       >
         <v-icon size="18" color="inherit">mdi-folder-multiple-outline</v-icon>
-        <span class="tab-label">File</span>
+        <span class="tab-label">Files</span>
         <span v-if="(imageBadgeCount + fileBadgeCount)" class="tab-badge">{{ imageBadgeCount + fileBadgeCount }}</span>
       </button>
       <button

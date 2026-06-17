@@ -79,7 +79,7 @@ export async function groupRoutes(app: FastifyInstance) {
           const finalId = id || key.replace(/_0$/, '');
           if (seen.has(finalId)) continue;
           seen.add(finalId);
-          const avatar = d.avatar || d.avt || d.fullAvt || d.avatarUrl || d.s120Avt || d.thumb || d.profilePicture || '';
+          const avatar = d.avatar || d.avt || d.fullAvt || d.avatarUrl || d.s120Avt || d.thumb || d.profilePicture || d.avtUrl || d.img || d.photo || d.picture || '';
           members.push({ id: finalId, name: name || key, avatar });
         }
       }
@@ -91,14 +91,27 @@ export async function groupRoutes(app: FastifyInstance) {
         }
       }
 
-      // Debug: show keys from first profile entry
-      let sampleKeys: string[] = [];
-      if (members.length > 0 && profileSources.length > 0) {
-        const firstSource = profileSources[0] as any;
-        const firstKey = Object.keys(firstSource)[0];
-        if (firstKey) sampleKeys = Object.keys(firstSource[firstKey] || {});
+      // 3. Enrich with avatars via getUserInfo (best-effort, parallel)
+      if (members.length > 0) {
+        try {
+          const userInfoResults = await Promise.allSettled(
+            members.map(m => zaloOps.getUserInfo(accountId, m.id).catch(() => null))
+          );
+          userInfoResults.forEach((r, i) => {
+            if (r.status === 'fulfilled' && r.value) {
+              const info: any = r.value;
+              if (!members[i].avatar) {
+                members[i].avatar = info.avatarUrl || info.avt || info.fullAvt || info.avatar || '';
+              }
+              if (!members[i].name || members[i].name === members[i].id) {
+                members[i].name = info.displayName || info.name || info.dName || info.fullName || members[i].name;
+              }
+            }
+          });
+        } catch { /* ignore */ }
       }
-      return { members, total: g?.totalMember || members.length, _debug: { sampleKeys } };
+
+      return { members, total: g?.totalMember || members.length };
     } catch (err) { return handleError(reply, err, 'getGroupMembers'); }
   });
 

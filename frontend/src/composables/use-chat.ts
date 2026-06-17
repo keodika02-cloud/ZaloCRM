@@ -236,32 +236,29 @@ export function useChat() {
     document.addEventListener('click', tryRequest, { once: true });
   }
 
-  function showDesktopNotification(data: { message: Message; conversationId: string; accountId?: string }) {
+  function showDesktopNotification(message: Message, conversationId: string, accountId?: string) {
     if (typeof window === 'undefined' || !('Notification' in window)) return;
     if (Notification.permission !== 'granted') return;
     if (localStorage.getItem('desktopNotif') === 'off') return;
 
     // Check if this account is muted
-    if (data.accountId) {
+    if (accountId) {
       try {
         const muted: string[] = JSON.parse(localStorage.getItem('mutedNotifAccounts') || '[]');
-        if (muted.includes(data.accountId)) {
-          console.log('[notif] Account muted, skipping:', data.accountId, muted);
-          return;
-        }
+        if (muted.includes(accountId)) return;
       } catch {}
     }
 
-    const sender = data.message.senderName || 'Tin nhắn mới';
+    const sender = message.senderName || 'Tin nhắn mới';
 
     // Batch notifications per sender with debounce
     const key = `notif:${sender}`;
     const existing = notifBatch.get(key);
     if (existing) {
       existing.count++;
-      existing.conversationId = data.conversationId; // latest conversation
+      existing.conversationId = conversationId; // latest conversation
     } else {
-      notifBatch.set(key, { sender, conversationId: data.conversationId, count: 1 });
+      notifBatch.set(key, { sender, conversationId, count: 1 });
     }
 
     // Debounce: fire after 2s of no new messages from this sender
@@ -721,7 +718,9 @@ export function useChat() {
 
         // Desktop notification
         if (isHidden || isDifferentConv) {
-          showDesktopNotification({ ...data, accountId: (data as any).accountId });
+          const conv = conversations.value.find(c => c.id === data.conversationId);
+          const accountId = conv?.zaloAccount?.id || (data as any).accountId;
+          showDesktopNotification(data.message, data.conversationId, accountId);
         }
       }
 

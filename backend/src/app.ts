@@ -98,7 +98,7 @@ async function bootstrap() {
   });
 
   await app.register(rateLimit, {
-    max: 500,
+    max: 1000,
     timeWindow: '1 minute',
     // Skip rate limiting for static assets — only limit API routes
     allowList: (request: { url: string }) => !request.url.startsWith('/api/'),

@@ -376,6 +376,8 @@ function getFileProxyUrl(href: string, name: string, inline = false): string {
     const base = `/api/v1/conversations/${convId}/attachments/download?url=${encodeURIComponent(href)}&name=${encodeURIComponent(name)}`;
     return inline ? `${base}&inline=1` : base;
   }
+  const minioMatch = href.match(/http:\/\/localhost:9000\/zalocrm-attachments\/(.+)/);
+  if (minioMatch) return `/attachments/${minioMatch[1]}`;
   return href;
 }
 

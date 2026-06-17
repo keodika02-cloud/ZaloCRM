@@ -789,6 +789,9 @@ function getFileProxyUrl(href: string, name: string, inline = true): string {
     const base = `/api/v1/conversations/${props.conversation?.id || ''}/attachments/download?url=${encodeURIComponent(href)}&name=${encodeURIComponent(name)}`;
     return inline ? `${base}&inline=1` : base;
   }
+  // Proxy MinIO URLs through Nginx to avoid Mixed Content on HTTPS
+  const minioMatch = href.match(/http:\/\/localhost:9000\/zalocrm-attachments\/(.+)/);
+  if (minioMatch) return `/attachments/${minioMatch[1]}`;
   return href;
 }
 function downloadPreviewFile() {
